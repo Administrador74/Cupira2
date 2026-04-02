@@ -1,8 +1,8 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.foxblack.app',
-  appName: 'FOXBLACK',
+  appId: 'com.cupira2.app',
+  appName: 'Cupira2',
   webDir: 'dist',
   server: {
     androidScheme: 'https'
