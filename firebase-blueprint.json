@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Información del perfil de usuario.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "photoURL": { "type": "string" },
+        "coverURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "location": { "type": "string" },
+        "status": { "type": "string" },
+        "gallery": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["uid", "displayName", "email"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Publicación de un usuario.",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "imageURL": { "type": "string" },
+        "likes": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["authorId", "authorName", "content", "createdAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "Comentario en una publicación.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "authorId", "authorName", "content", "createdAt"]
+    },
+    "Follow": {
+      "title": "Follow",
+      "description": "Relación de seguimiento entre usuarios.",
+      "type": "object",
+      "properties": {
+        "followerId": { "type": "string" },
+        "followingId": { "type": "string" }
+      },
+      "required": ["followerId", "followingId"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Mensaje privado entre usuarios.",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["senderId", "receiverId", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Documentos de perfil de usuario."
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Colección de publicaciones."
+    },
+    "/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Colección de comentarios."
+    },
+    "/follows/{followId}": {
+      "schema": "Follow",
+      "description": "Colección de seguidores."
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Colección de mensajes privados."
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+	"appId": "com.foxblack.app",
+	"appName": "FOXBLACK",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	}
+}
