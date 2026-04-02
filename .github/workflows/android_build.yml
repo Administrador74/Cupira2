@@ -30,11 +30,13 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Remove problematic Gradle Wrapper
+        run: rm -f android/gradle/wrapper/gradle-wrapper.jar
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.10.2
-          wrapper-validation-enabled: false
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -50,5 +52,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: foxblack-apk
+          name: cupira2-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
