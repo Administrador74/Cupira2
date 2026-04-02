@@ -14,6 +14,7 @@ export interface Post {
   id: string;
   authorId: string;
   authorName: string;
+  authorRole?: 'admin' | 'user';
   content: string;
   createdAt: any; // Timestamp
   imageURL?: string;

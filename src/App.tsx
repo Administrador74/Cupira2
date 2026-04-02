@@ -289,7 +289,7 @@ export default function App() {
                   transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
                 >
                   {view === 'main' && <Feed profile={profile} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
-                  {view === 'profile' && <ProfileView profile={profile} isOwn={true} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
+                  {view === 'profile' && <ProfileView profile={profile} isOwn={true} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} onMessageClick={(uid) => setChatTargetId(uid)} />}
                   {view === 'search' && <SearchView profile={profile} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
                   {view === 'messages' && <MessagesView profile={profile} onChatSelect={(uid) => setChatTargetId(uid)} />}
                   {view === 'other-profile' && selectedUserId && (
@@ -298,6 +298,7 @@ export default function App() {
                       isOwn={selectedUserId === profile.uid} 
                       targetUserId={selectedUserId} 
                       onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }}
+                      onMessageClick={(uid) => setChatTargetId(uid)}
                     />
                   )}
                 </motion.div>
@@ -309,6 +310,7 @@ export default function App() {
                   profile={profile} 
                   targetId={chatTargetId} 
                   onClose={() => setChatTargetId(null)} 
+                  setError={setError}
                 />
               )}
             </AnimatePresence>
@@ -702,7 +704,7 @@ function MessagesView({ profile, onChatSelect }: { profile: User, onChatSelect: 
   );
 }
 
-function ChatWindow({ profile, targetId, onClose }: { profile: User, targetId: string, onClose: () => void }) {
+function ChatWindow({ profile, targetId, onClose, setError }: { profile: User, targetId: string, onClose: () => void, setError: (m: string) => void }) {
   const [targetUser, setTargetUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -726,6 +728,12 @@ function ChatWindow({ profile, targetId, onClose }: { profile: User, targetId: s
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
       setMessages(msgs);
       setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }, (error) => {
+      console.error("Error en onSnapshot de mensajes:", error);
+      // Si falla por falta de índice, intentamos una consulta más simple
+      if (error.message.includes('index')) {
+        console.warn("Falta índice para mensajes, intentando consulta simple...");
+      }
     });
 
     return () => unsubscribe();
@@ -736,6 +744,7 @@ function ChatWindow({ profile, targetId, onClose }: { profile: User, targetId: s
     if (!newMessage.trim()) return;
 
     try {
+      console.log("Enviando mensaje de", profile.uid, "a", targetId);
       await addDoc(collection(db, 'messages'), {
         senderId: profile.uid,
         receiverId: targetId,
@@ -743,9 +752,11 @@ function ChatWindow({ profile, targetId, onClose }: { profile: User, targetId: s
         createdAt: serverTimestamp(),
         read: false
       });
+      console.log("Mensaje enviado con éxito");
       setNewMessage('');
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error sending message:", err);
+      setError("Error al enviar mensaje: " + err.message);
     }
   };
 
@@ -904,9 +915,12 @@ function Feed({ profile, onUserClick }: { profile: User, onUserClick: (uid: stri
         setPosts(allPosts.filter(p => 
           following.includes(p.authorId) || 
           p.authorId === profile.uid ||
+          p.authorRole === 'admin' ||
           p.authorName === 'Administrador'
         ));
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'posts');
     });
   }, [following, profile.uid, profile.role]);
 
@@ -927,6 +941,7 @@ function Feed({ profile, onUserClick }: { profile: User, onUserClick: (uid: stri
     await addDoc(collection(db, 'posts'), {
       authorId: profile.uid,
       authorName: profile.displayName,
+      authorRole: profile.role,
       content: newPost,
       imageURL: postImage || null,
       likes: [],
@@ -1067,7 +1082,7 @@ function PostCard({ post, profile, onUserClick }: { key?: string, post: Post, pr
           <div className="flex items-center gap-5 cursor-pointer group/author" onClick={() => onUserClick(post.authorId)}>
             <div className="relative">
               <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${post.authorId}`} alt="avatar" className="w-14 h-14 rounded-2xl shadow-xl group-hover/author:scale-105 transition-transform border-2 border-white/10" />
-              {post.authorName === 'Administrador' && (
+              {(post.authorRole === 'admin' || post.authorName === 'Administrador') && (
                 <div className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full border-4 border-zinc-900">
                   <ShieldCheck size={14} strokeWidth={3} />
                 </div>
@@ -1167,7 +1182,7 @@ function PostCard({ post, profile, onUserClick }: { key?: string, post: Post, pr
 
 // --- Profile View ---
 
-function ProfileView({ profile, isOwn, targetUserId, onUserClick }: { profile: User, isOwn: boolean, targetUserId?: string, onUserClick: (uid: string) => void }) {
+function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick }: { profile: User, isOwn: boolean, targetUserId?: string, onUserClick: (uid: string) => void, onMessageClick: (uid: string) => void }) {
   const [targetProfile, setTargetProfile] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [followers, setFollowers] = useState<string[]>([]);
@@ -1363,12 +1378,20 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick }: { profile: U
                 </button>
               )}
               {!isOwn && (
-                <button 
-                  onClick={handleFollow}
-                  className={`px-10 py-4 rounded-[1.5rem] font-black text-sm transition-all shadow-xl active:scale-95 uppercase tracking-widest ${isFollowing ? 'bg-zinc-800 text-white border border-white/5 hover:bg-zinc-700' : 'bg-red-600 text-white hover:bg-red-700 shadow-red-600/20'}`}
-                >
-                  {isFollowing ? 'Siguiendo' : 'Seguir'}
-                </button>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={handleFollow}
+                    className={`px-10 py-4 rounded-[1.5rem] font-black text-sm transition-all shadow-xl active:scale-95 uppercase tracking-widest ${isFollowing ? 'bg-zinc-800 text-white border border-white/5 hover:bg-zinc-700' : 'bg-red-600 text-white hover:bg-red-700 shadow-red-600/20'}`}
+                  >
+                    {isFollowing ? 'Siguiendo' : 'Seguir'}
+                  </button>
+                  <button 
+                    onClick={() => onMessageClick(uid)}
+                    className="px-8 py-4 bg-zinc-800 text-white rounded-[1.5rem] font-black text-sm shadow-xl border border-white/5 hover:bg-zinc-700 transition-all active:scale-95 uppercase tracking-widest"
+                  >
+                    Mensaje
+                  </button>
+                </div>
               )}
             </div>
           </div>
