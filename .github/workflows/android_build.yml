@@ -28,7 +28,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
 
       - name: Remove problematic Gradle Wrapper
         run: rm -f android/gradle/wrapper/gradle-wrapper.jar
@@ -47,7 +47,7 @@ jobs:
       - name: Build APK
         run: |
           cd android
-          gradle assembleDebug
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
