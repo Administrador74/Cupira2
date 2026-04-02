@@ -1,4 +1,4 @@
-package com.foxblack.app;
+package com.cupira2.app;
 
 import com.getcapacitor.BridgeActivity;
 
