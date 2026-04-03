@@ -972,33 +972,55 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
 
     const convId = [effectiveProfileId, effectiveTargetId].sort().join('_');
 
-    const q = query(
+    // Consultas para asegurar compatibilidad total
+    const qById = query(
       collection(db, 'messages'),
       where('conversationId', '==', convId),
       orderBy('createdAt', 'desc'),
       limit(100)
     );
 
-    const updateMessages = (docs: any[]) => {
-      const allMsgs = docs
-        .map(doc => ({ id: doc.id, ...doc.data({ serverTimestamps: 'estimate' }) } as Message))
+    const qSent = query(
+      collection(db, 'messages'),
+      where('senderId', '==', effectiveProfileId),
+      where('receiverId', '==', effectiveTargetId),
+      orderBy('createdAt', 'desc'),
+      limit(100)
+    );
+
+    const qReceived = query(
+      collection(db, 'messages'),
+      where('senderId', '==', effectiveTargetId),
+      where('receiverId', '==', effectiveProfileId),
+      orderBy('createdAt', 'desc'),
+      limit(100)
+    );
+
+    const updateMessages = (d1: any[], d2: any[], d3: any[]) => {
+      const uniqueMsgs = new Map();
+      [...d1, ...d2, ...d3].forEach(d => {
+        if (!uniqueMsgs.has(d.id)) {
+          uniqueMsgs.set(d.id, { id: d.id, ...d.data({ serverTimestamps: 'estimate' }) } as Message);
+        }
+      });
+
+      const sorted = Array.from(uniqueMsgs.values())
         .sort((a, b) => {
-          const timeA = a.createdAt?.toMillis?.() || 0;
-          const timeB = b.createdAt?.toMillis?.() || 0;
-          return timeA - timeB;
+          const tA = a.createdAt?.toMillis?.() || 0;
+          const tB = b.createdAt?.toMillis?.() || 0;
+          return tA - tB;
         });
-      setMessages(allMsgs);
-      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      
+      setMessages(sorted);
+      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 150);
     };
 
-    const unsub = onSnapshot(q, (snapshot) => {
-      updateMessages(snapshot.docs);
-    }, (error) => {
-      console.error("Error en onSnapshot messages:", error);
-      setError("Error al recibir mensajes: " + error.message);
-    });
+    let d1: any[] = [], d2: any[] = [], d3: any[] = [];
+    const unsub1 = onSnapshot(qById, (s) => { d1 = s.docs; updateMessages(d1, d2, d3); });
+    const unsub2 = onSnapshot(qSent, (s) => { d2 = s.docs; updateMessages(d1, d2, d3); });
+    const unsub3 = onSnapshot(qReceived, (s) => { d3 = s.docs; updateMessages(d1, d2, d3); });
 
-    return () => unsub();
+    return () => { unsub1(); unsub2(); unsub3(); };
   }, [effectiveProfileId, effectiveTargetId]);
 
   const handleSend = async (e: React.FormEvent) => {
@@ -1511,6 +1533,60 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
 
 // --- Profile View ---
 
+function ImageModal({ src, onClose, onDelete, onEdit, canEdit }: { src: string, onClose: () => void, onDelete?: () => void, onEdit?: () => void, canEdit?: boolean }) {
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/95 backdrop-blur-2xl z-[200] flex flex-col items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div className="absolute top-10 right-10 flex gap-4">
+        {canEdit && (
+          <>
+            {onEdit && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                className="p-4 bg-zinc-800 text-white rounded-2xl shadow-2xl hover:bg-zinc-700 transition-all active:scale-90"
+                title="Cambiar foto"
+              >
+                <Camera size={24} strokeWidth={3} />
+              </button>
+            )}
+            {onDelete && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                className="p-4 bg-red-600 text-white rounded-2xl shadow-2xl hover:bg-red-700 transition-all active:scale-90"
+                title="Eliminar foto"
+              >
+                <Trash2 size={24} strokeWidth={3} />
+              </button>
+            )}
+          </>
+        )}
+        <button 
+          onClick={onClose}
+          className="p-4 bg-zinc-800 text-white rounded-2xl shadow-2xl hover:bg-zinc-700 transition-all active:scale-90"
+        >
+          <X size={24} strokeWidth={3} />
+        </button>
+      </div>
+      
+      <motion.img 
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        src={src} 
+        alt="Full screen" 
+        className="max-w-full max-h-[80vh] object-contain rounded-3xl shadow-[0_0_100px_rgba(0,0,0,0.5)] border border-white/10"
+        onClick={(e) => e.stopPropagation()}
+      />
+      
+      <p className="mt-8 text-zinc-500 font-black uppercase tracking-[0.3em] text-xs">Toca fuera para cerrar</p>
+    </motion.div>
+  );
+}
+
 function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick }: { profile: User, isOwn: boolean, targetUserId?: string, onUserClick: (uid: string) => void, onMessageClick: (uid: string) => void }) {
   const [targetProfile, setTargetProfile] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -1521,6 +1597,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
   const [usersList, setUsersList] = useState<User[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({ location: '', status: '' });
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -1569,13 +1646,12 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
     }
   };
 
-  const handleUpdateImage = async (type: 'photoURL' | 'coverURL' | 'gallery', e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpdateImage = async (type: 'photoURL' | 'coverURL' | 'gallery', e: React.ChangeEvent<HTMLInputElement>, replaceUrl?: string) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validar tamaño del archivo (máximo 150KB para evitar límites de Firestore con base64 en el documento de usuario)
       if (file.size > 150 * 1024) {
-        alert("La imagen es demasiado grande. Por favor, elige una de menos de 150KB para asegurar que se guarde correctamente.");
-        e.target.value = ''; // Reset input
+        alert("La imagen es demasiado grande. Por favor, elige una de menos de 150KB.");
+        e.target.value = '';
         return;
       }
 
@@ -1584,20 +1660,23 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
         const dataUrl = reader.result as string;
         try {
           if (type === 'gallery') {
-            await updateDoc(doc(db, 'users', uid), { gallery: arrayUnion(dataUrl) });
+            if (replaceUrl) {
+              // Reemplazar una imagen existente
+              const currentGallery = targetProfile?.gallery || [];
+              const newGallery = currentGallery.map(img => img === replaceUrl ? dataUrl : img);
+              await updateDoc(doc(db, 'users', uid), { gallery: newGallery });
+            } else {
+              await updateDoc(doc(db, 'users', uid), { gallery: arrayUnion(dataUrl) });
+            }
           } else {
             await updateDoc(doc(db, 'users', uid), { [type]: dataUrl });
           }
-          console.log(`Imagen ${type} actualizada con éxito para ${uid}`);
+          setSelectedImage(null);
         } catch (err: any) {
           console.error("Error al actualizar imagen:", err);
-          if (err.message.includes('quota')) {
-            alert("Error: Se ha excedido la cuota de almacenamiento. Intenta con una imagen más pequeña.");
-          } else {
-            alert("Error al guardar la imagen: " + err.message);
-          }
+          alert("Error al guardar la imagen: " + err.message);
         } finally {
-          e.target.value = ''; // Reset input
+          e.target.value = '';
         }
       };
       reader.readAsDataURL(file);
@@ -1615,6 +1694,19 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
     } catch (err: any) {
       console.error("Error al guardar perfil:", err);
       alert("Error al guardar los cambios: " + err.message);
+    }
+  };
+
+  const handleDeleteImage = async (imgUrl: string) => {
+    if (!window.confirm("¿Estás seguro de que quieres eliminar esta foto de tu galería?")) return;
+    try {
+      await updateDoc(doc(db, 'users', uid), {
+        gallery: arrayRemove(imgUrl)
+      });
+      setSelectedImage(null);
+    } catch (err: any) {
+      console.error("Error al eliminar imagen:", err);
+      alert("Error al eliminar la imagen: " + err.message);
     }
   };
 
@@ -1771,7 +1863,10 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
         className="bg-zinc-900/80 backdrop-blur-xl p-10 rounded-[3rem] shadow-2xl border border-white/10"
       >
         <div className="flex justify-between items-center mb-8">
-          <h2 className="font-black text-3xl text-white tracking-tighter uppercase">Galería de Fotos</h2>
+          <div className="flex flex-col">
+            <h2 className="font-black text-3xl text-white tracking-tighter uppercase">Galería Multimedia</h2>
+            <p className="text-zinc-500 font-bold text-xs uppercase tracking-widest mt-1">Fotos subidas y publicadas</p>
+          </div>
           {canEdit && (
             <>
               <button 
@@ -1781,45 +1876,63 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
                 <PlusCircle size={20} strokeWidth={3} /> Añadir Foto
               </button>
               <input type="file" ref={galleryInputRef} onChange={(e) => handleUpdateImage('gallery', e)} className="hidden" accept="image/*" />
+              <input type="file" id="replaceInput" onChange={(e) => handleUpdateImage('gallery', e, selectedImage!)} className="hidden" accept="image/*" />
             </>
           )}
         </div>
         
         <div className="grid grid-cols-3 gap-6">
+          {/* Fotos de la Galería */}
           {targetProfile.gallery?.map((img, idx) => (
             <motion.div 
-              key={idx} 
+              key={`gallery-${idx}`} 
               whileHover={{ scale: 1.05, rotate: idx % 2 === 0 ? 1 : -1 }}
+              onClick={() => setSelectedImage(img)}
               className="aspect-square rounded-[2.5rem] overflow-hidden border-4 border-zinc-800 shadow-2xl bg-zinc-800 cursor-pointer group relative"
             >
               <img src={img} alt={`gallery-${idx}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-              {canEdit && (
-                <button 
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    try {
-                      await updateDoc(doc(db, 'users', uid), { gallery: arrayRemove(img) });
-                      console.log("Foto eliminada de la galería");
-                    } catch (err: any) {
-                      console.error("Error al eliminar foto:", err);
-                      alert("Error al eliminar la foto: " + err.message);
-                    }
-                  }}
-                  className="absolute top-4 right-4 bg-red-600 text-white p-3 rounded-2xl opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-xl shadow-red-600/20"
-                >
-                  <Trash2 size={18} strokeWidth={3} />
-                </button>
-              )}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Eye size={32} className="text-white" strokeWidth={3} />
+              </div>
             </motion.div>
           ))}
-          {(!targetProfile.gallery || targetProfile.gallery.length === 0) && (
+          
+          {/* Fotos de Publicaciones */}
+          {posts.filter(p => p.imageURL).map((post, idx) => (
+            <motion.div 
+              key={`post-img-${idx}`} 
+              whileHover={{ scale: 1.05, rotate: idx % 2 === 0 ? -1 : 1 }}
+              onClick={() => setSelectedImage(post.imageURL!)}
+              className="aspect-square rounded-[2.5rem] overflow-hidden border-4 border-blue-900/30 shadow-2xl bg-zinc-800 cursor-pointer group relative"
+            >
+              <img src={post.imageURL} alt={`post-${idx}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+              <div className="absolute inset-0 bg-blue-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                <MessageSquare size={24} className="text-white" strokeWidth={3} />
+                <span className="text-[8px] font-black text-white uppercase tracking-widest">De Publicación</span>
+              </div>
+            </motion.div>
+          ))}
+
+          {(!targetProfile.gallery || targetProfile.gallery.length === 0) && posts.filter(p => p.imageURL).length === 0 && (
             <div className="col-span-3 text-center py-20 bg-zinc-800/30 rounded-[3rem] border-2 border-dashed border-white/10">
               <ImageIcon size={64} className="mx-auto text-zinc-700 mb-4" strokeWidth={1} />
-              <p className="text-zinc-500 font-black uppercase tracking-widest text-sm italic">Tu galería está esperando tus mejores momentos</p>
+              <p className="text-zinc-500 font-black uppercase tracking-widest text-sm italic">No hay fotos multimedia todavía</p>
             </div>
           )}
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {selectedImage && (
+          <ImageModal 
+            src={selectedImage} 
+            onClose={() => setSelectedImage(null)} 
+            onDelete={targetProfile.gallery?.includes(selectedImage) ? () => handleDeleteImage(selectedImage) : undefined}
+            onEdit={targetProfile.gallery?.includes(selectedImage) ? () => document.getElementById('replaceInput')?.click() : undefined}
+            canEdit={canEdit}
+          />
+        )}
+      </AnimatePresence>
 
       <div className="space-y-8">
         <div className="flex items-center justify-between px-4">
