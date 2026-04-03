@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -621,35 +621,41 @@ function MessagesView({ profile, onChatSelect }: { profile: User, onChatSelect: 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Find mutual follows
+    let isMounted = true;
     const q1 = query(collection(db, 'follows'), where('followerId', '==', profile.uid));
     const q2 = query(collection(db, 'follows'), where('followingId', '==', profile.uid));
 
-    const unsubscribe1 = onSnapshot(q1, (snapshot1) => {
-      const followingIds = snapshot1.docs.map(doc => doc.data().followingId);
+    const unsub1 = onSnapshot(q1, (snap1) => {
+      const followingIds = snap1.docs.map(d => d.data().followingId);
       
-      const unsubscribe2 = onSnapshot(q2, async (snapshot2) => {
-        const followerIds = snapshot2.docs.map(doc => doc.data().followerId);
+      const unsub2 = onSnapshot(q2, async (snap2) => {
+        const followerIds = snap2.docs.map(d => d.data().followerId);
         const mutualIds = followingIds.filter(id => followerIds.includes(id));
         
-        if (mutualIds.length > 0) {
-          const friendsData: User[] = [];
-          for (const id of mutualIds) {
-            const userDoc = await getDoc(doc(db, 'users', id));
-            if (userDoc.exists()) {
-              friendsData.push({ id: userDoc.id, ...userDoc.data() } as any);
-            }
+        if (mutualIds.length > 0 && isMounted) {
+          // Usar Promise.all para cargar perfiles en paralelo
+          const profiles = await Promise.all(
+            mutualIds.map(async (id) => {
+              const docSnap = await getDoc(doc(db, 'users', id));
+              return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } as any as User : null;
+            })
+          );
+          if (isMounted) {
+            setFriends(profiles.filter((p): p is User => p !== null));
+            setLoading(false);
           }
-          setFriends(friendsData);
-        } else {
+        } else if (isMounted) {
           setFriends([]);
+          setLoading(false);
         }
-        setLoading(loading => false);
       });
-      return () => unsubscribe2();
+      return () => unsub2();
     });
 
-    return () => unsubscribe1();
+    return () => {
+      isMounted = false;
+      unsub1();
+    };
   }, [profile.uid]);
 
   if (loading) return <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div></div>;
@@ -719,21 +725,27 @@ function ChatWindow({ profile, targetId, onClose, setError }: { profile: User, t
 
     const q = query(
       collection(db, 'messages'),
-      where('senderId', 'in', [profile.uid, targetId]),
-      where('receiverId', 'in', [profile.uid, targetId]),
-      orderBy('createdAt', 'asc')
+      where('senderId', 'in', [profile.uid, targetId])
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+      const msgs = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data({ serverTimestamps: 'estimate' }) } as Message))
+        .filter(m => 
+          (m.senderId === profile.uid && m.receiverId === targetId) || 
+          (m.senderId === targetId && m.receiverId === profile.uid)
+        )
+        .sort((a, b) => {
+          const timeA = a.createdAt?.toMillis?.() || 0;
+          const timeB = b.createdAt?.toMillis?.() || 0;
+          return timeA - timeB;
+        });
+        
       setMessages(msgs);
       setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     }, (error) => {
       console.error("Error en onSnapshot de mensajes:", error);
-      // Si falla por falta de índice, intentamos una consulta más simple
-      if (error.message.includes('index')) {
-        console.warn("Falta índice para mensajes, intentando consulta simple...");
-      }
+      setError("Error al recibir mensajes en tiempo real: " + error.message);
     });
 
     return () => unsubscribe();
@@ -829,7 +841,7 @@ function ChatWindow({ profile, targetId, onClose, setError }: { profile: User, t
 
 // --- Navigation ---
 
-function Sidebar({ setView, currentView, onLogout, isAdmin }: { setView: (v: any) => void, currentView: string, onLogout: () => void, isAdmin: boolean }) {
+const Sidebar = memo(({ setView, currentView, onLogout, isAdmin }: { setView: (v: any) => void, currentView: string, onLogout: () => void, isAdmin: boolean }) => {
   const items = [
     { id: 'main', icon: Home, label: 'Inicio' },
     { id: 'search', icon: Search, label: 'Buscar' },
@@ -885,7 +897,7 @@ function Sidebar({ setView, currentView, onLogout, isAdmin }: { setView: (v: any
       </button>
     </nav>
   );
-}
+});
 
 // --- Feed View ---
 
@@ -1028,7 +1040,7 @@ function Feed({ profile, onUserClick }: { profile: User, onUserClick: (uid: stri
   );
 }
 
-function PostCard({ post, profile, onUserClick }: { key?: string, post: Post, profile: User, onUserClick: (uid: string) => void }) {
+const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: User, onUserClick: (uid: string) => void }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [showComments, setShowComments] = useState(false);
@@ -1081,7 +1093,12 @@ function PostCard({ post, profile, onUserClick }: { key?: string, post: Post, pr
         <div className="flex justify-between items-start mb-6">
           <div className="flex items-center gap-5 cursor-pointer group/author" onClick={() => onUserClick(post.authorId)}>
             <div className="relative">
-              <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${post.authorId}`} alt="avatar" className="w-14 h-14 rounded-2xl shadow-xl group-hover/author:scale-105 transition-transform border-2 border-white/10" />
+              <img 
+                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${post.authorId}`} 
+                alt="avatar" 
+                className="w-14 h-14 rounded-2xl shadow-xl group-hover/author:scale-105 transition-transform border-2 border-white/10" 
+                loading="lazy"
+              />
               {(post.authorRole === 'admin' || post.authorName === 'Administrador') && (
                 <div className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full border-4 border-zinc-900">
                   <ShieldCheck size={14} strokeWidth={3} />
@@ -1104,7 +1121,12 @@ function PostCard({ post, profile, onUserClick }: { key?: string, post: Post, pr
         
         {post.imageURL && (
           <div className="rounded-[2.5rem] overflow-hidden mb-6 shadow-2xl border border-white/5">
-            <img src={post.imageURL} alt="post" className="w-full max-h-[600px] object-cover hover:scale-105 transition-transform duration-700" />
+            <img 
+              src={post.imageURL} 
+              alt="post" 
+              className="w-full max-h-[600px] object-cover hover:scale-105 transition-transform duration-700" 
+              loading="lazy"
+            />
           </div>
         )}
         
@@ -1178,7 +1200,7 @@ function PostCard({ post, profile, onUserClick }: { key?: string, post: Post, pr
       </AnimatePresence>
     </motion.div>
   );
-}
+});
 
 // --- Profile View ---
 
