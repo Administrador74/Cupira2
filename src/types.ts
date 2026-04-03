@@ -45,3 +45,11 @@ export interface Message {
   read?: boolean;
   deletedByAdmin?: boolean;
 }
+
+export interface Conversation {
+  id: string;
+  participants: string[];
+  lastMessage: string;
+  lastTimestamp: any;
+  unreadCount?: { [uid: string]: number };
+}

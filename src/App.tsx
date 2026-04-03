@@ -31,7 +31,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { User, Post, Follow, Comment, Message } from './types';
+import { User, Post, Follow, Comment, Message, Conversation } from './types';
 import { 
   LogOut, 
   User as UserIcon, 
@@ -687,87 +687,88 @@ function Register({ setView, setSuccessMessage, setPendingView }: { setView: (v:
 // --- Messaging ---
 
 function MessagesView({ profile, onChatSelect, setView }: { profile: User, onChatSelect: (uid: string) => void, setView: (v: any) => void }) {
-  const [friends, setFriends] = useState<User[]>([]);
+  const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const userCache = useRef<Map<string, User>>(new Map());
 
   useEffect(() => {
-    let isMounted = true;
-    const q1 = query(collection(db, 'follows'), where('followerId', '==', profile.uid));
-    const q2 = query(collection(db, 'follows'), where('followingId', '==', profile.uid));
+    const q = query(
+      collection(db, 'conversations'),
+      where('participants', 'array-contains', profile.uid),
+      orderBy('lastTimestamp', 'desc')
+    );
 
-    const unsub1 = onSnapshot(q1, (snap1) => {
-      const followingIds = snap1.docs.map(d => d.data().followingId);
+    const unsub = onSnapshot(q, async (snapshot) => {
+      const convs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Conversation));
       
-      const unsub2 = onSnapshot(q2, async (snap2) => {
-        const followerIds = snap2.docs.map(d => d.data().followerId);
-        const mutualIds = followingIds.filter(id => followerIds.includes(id));
-        
-        if (mutualIds.length > 0 && isMounted) {
-          // Usar Promise.all para cargar perfiles en paralelo
-          const profiles = await Promise.all(
-            mutualIds.map(async (id) => {
-              const docSnap = await getDoc(doc(db, 'users', id));
-              return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } as any as User : null;
-            })
-          );
-          if (isMounted) {
-            setFriends(profiles.filter((p): p is User => p !== null));
-            setLoading(false);
-          }
-        } else if (isMounted) {
-          setFriends([]);
-          setLoading(false);
+      const getUser = async (uid: string) => {
+        if (userCache.current.has(uid)) return userCache.current.get(uid);
+        const docSnap = await getDoc(doc(db, 'users', uid));
+        if (docSnap.exists()) {
+          const userData = { ...docSnap.data() } as User;
+          userCache.current.set(uid, userData);
+          return userData;
         }
-      });
-      return () => unsub2();
+        return null;
+      };
+
+      const enriched = await Promise.all(convs.map(async (c) => {
+        const otherId = c.participants.find(p => p !== profile.uid);
+        if (!otherId) return null;
+        const otherUser = await getUser(otherId);
+        return { ...c, otherUser };
+      }));
+
+      setConversations(enriched.filter(c => c !== null));
+      setLoading(false);
+    }, (error) => {
+      console.error("Error en MessagesView:", error);
+      setLoading(false);
     });
 
-    return () => {
-      isMounted = false;
-      unsub1();
-    };
+    return unsub;
   }, [profile.uid]);
 
-  if (loading) return <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div></div>;
+  if (loading) return <Loading />;
 
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between mb-10 px-4">
         <h1 className="text-5xl font-black text-white tracking-tighter uppercase">Mensajes</h1>
         <div className="bg-red-600/20 text-red-500 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest border border-red-500/10">
-          {friends.length} Amigos
+          {conversations.length} Chats
         </div>
       </div>
 
-      {friends.length === 0 ? (
+      {conversations.length === 0 ? (
         <div className="bg-zinc-900/50 backdrop-blur-xl p-20 rounded-[4rem] text-center border border-white/5 shadow-2xl">
           <div className="w-32 h-32 bg-zinc-800 text-zinc-700 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-inner">
             <MessageSquare size={64} strokeWidth={1} />
           </div>
           <h3 className="text-3xl font-black text-white mb-4 tracking-tight uppercase">No hay chats todavía</h3>
-          <p className="text-zinc-500 max-w-sm mx-auto font-medium leading-relaxed italic">Sigue a personas y espera a que te sigan de vuelta para empezar a chatear.</p>
+          <p className="text-zinc-500 max-w-sm mx-auto font-medium leading-relaxed italic">Empieza una conversación buscando a alguien en la lupa.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {friends.map((friend) => (
+          {conversations.map((conv) => (
             <motion.div
-              key={friend.uid}
+              key={conv.id}
               whileHover={{ scale: 1.02, y: -8 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => onChatSelect(friend.uid)}
+              onClick={() => onChatSelect(conv.otherUser.uid)}
               className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] border border-white/10 shadow-2xl flex items-center gap-6 cursor-pointer group"
             >
               <div className="relative">
                 <img 
-                  src={friend.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${friend.uid}`} 
-                  alt={friend.displayName}
+                  src={conv.otherUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${conv.otherUser.uid}`} 
+                  alt={conv.otherUser.displayName}
                   className="w-20 h-20 rounded-[2rem] object-cover border-2 border-white/10 shadow-2xl group-hover:scale-110 transition-transform duration-500"
                 />
                 <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-4 border-zinc-900 rounded-full shadow-lg"></div>
               </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-black text-white group-hover:text-red-500 transition-colors tracking-tight">{friend.displayName}</h3>
-                <p className="text-zinc-500 text-xs font-black uppercase tracking-widest mt-1">Toca para chatear</p>
+              <div className="flex-1 overflow-hidden">
+                <h3 className="text-xl font-black text-white group-hover:text-red-500 transition-colors tracking-tight truncate">{conv.otherUser.displayName}</h3>
+                <p className="text-zinc-500 text-sm font-medium truncate mt-1 italic">"{conv.lastMessage}"</p>
               </div>
               <div className="bg-zinc-800 p-4 rounded-2xl text-zinc-600 group-hover:bg-red-600 group-hover:text-white transition-all shadow-xl border border-white/5 group-hover:shadow-red-600/20 active:scale-90">
                 <ArrowRight size={24} strokeWidth={3} />
@@ -803,33 +804,20 @@ function MessagesView({ profile, onChatSelect, setView }: { profile: User, onCha
 function AdminMessagesView({ onChatSelect }: { onChatSelect: (senderId: string, receiverId: string) => void }) {
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [migrating, setMigrating] = useState(false);
   const userCache = useRef<Map<string, User>>(new Map());
 
   useEffect(() => {
-    // Limitamos a los últimos 500 mensajes para obtener las conversaciones más recientes rápidamente
-    const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(500));
+    const q = query(collection(db, 'conversations'), orderBy('lastTimestamp', 'desc'));
     
     const unsub = onSnapshot(q, async (snapshot) => {
-      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
-      
-      const pairs = new Map();
-      msgs.forEach(m => {
-        const key = [m.senderId, m.receiverId].sort().join('_');
-        if (!pairs.has(key)) {
-          pairs.set(key, {
-            id: key,
-            senderId: m.senderId,
-            receiverId: m.receiverId,
-            lastMessage: m.content,
-            createdAt: m.createdAt,
-            deletedByAdmin: m.deletedByAdmin
-          });
-        }
-      });
+      if (snapshot.empty) {
+        setLoading(false);
+        return;
+      }
 
-      const pairsArray = Array.from(pairs.values());
+      const convs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Conversation));
       
-      // Función para obtener usuario con caché
       const getUser = async (uid: string) => {
         if (userCache.current.has(uid)) return userCache.current.get(uid);
         const docSnap = await getDoc(doc(db, 'users', uid));
@@ -841,37 +829,77 @@ function AdminMessagesView({ onChatSelect }: { onChatSelect: (senderId: string, 
         return null;
       };
 
-      // Cargamos los perfiles de forma controlada
-      const convos = await Promise.all(pairsArray.map(async (c) => {
+      const enriched = await Promise.all(convs.map(async (c) => {
         const [u1, u2] = await Promise.all([
-          getUser(c.senderId),
-          getUser(c.receiverId)
+          getUser(c.participants[0]),
+          getUser(c.participants[1])
         ]);
-        return {
-          ...c,
-          user1: u1,
-          user2: u2
-        };
+        return { ...c, user1: u1, user2: u2 };
       }));
 
-      setConversations(convos);
+      setConversations(enriched);
       setLoading(false);
     }, (error) => {
-      console.error("Error en supervisión de mensajes:", error);
+      console.error("Error en AdminMessagesView:", error);
       setLoading(false);
     });
 
     return unsub;
   }, []);
 
-  if (loading && conversations.length === 0) return <Loading />;
+  const handleMigrate = async () => {
+    setMigrating(true);
+    try {
+      const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const msgs = snap.docs.map(doc => doc.data());
+      
+      const pairs = new Map();
+      msgs.forEach(m => {
+        const key = [m.senderId, m.receiverId].sort().join('_');
+        if (!pairs.has(key)) {
+          pairs.set(key, {
+            participants: [m.senderId, m.receiverId],
+            lastMessage: m.content,
+            lastTimestamp: m.createdAt
+          });
+        }
+      });
+
+      for (const [id, data] of pairs.entries()) {
+        await setDoc(doc(db, 'conversations', id), data, { merge: true });
+      }
+      alert("Migración completada con éxito");
+    } catch (err) {
+      console.error("Error en migración:", err);
+      alert("Error en migración");
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  if (loading) return <Loading />;
 
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between mb-10 px-4">
-        <h1 className="text-5xl font-black text-white tracking-tighter uppercase">Supervisión</h1>
-        <div className="bg-red-600/20 text-red-500 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest border border-red-500/10">
-          {conversations.length} Conversaciones
+        <div className="flex flex-col">
+          <h1 className="text-5xl font-black text-white tracking-tighter uppercase">Supervisión</h1>
+          <p className="text-zinc-500 font-bold text-xs uppercase tracking-[0.3em] mt-2">Archivo Maestro de Chats</p>
+        </div>
+        <div className="flex items-center gap-4">
+          {conversations.length === 0 && (
+            <button 
+              onClick={handleMigrate}
+              disabled={migrating}
+              className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest border border-white/5 disabled:opacity-50"
+            >
+              {migrating ? 'Migrando...' : 'Sincronizar Historial'}
+            </button>
+          )}
+          <div className="bg-red-600/20 text-red-500 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest border border-red-500/10">
+            {conversations.length} Conversaciones
+          </div>
         </div>
       </div>
 
@@ -880,15 +908,15 @@ function AdminMessagesView({ onChatSelect }: { onChatSelect: (senderId: string, 
           <motion.div
             key={c.id}
             whileHover={{ scale: 1.01, x: 10 }}
-            onClick={() => onChatSelect(c.senderId, c.receiverId)}
+            onClick={() => onChatSelect(c.participants[0], c.participants[1])}
             className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] border border-white/10 shadow-2xl flex items-center gap-8 cursor-pointer group"
           >
             <div className="flex -space-x-6 relative">
               <img src={c.user1?.photoURL} className="w-16 h-16 rounded-2xl border-4 border-zinc-900 shadow-xl z-10" alt="u1" />
               <img src={c.user2?.photoURL} className="w-16 h-16 rounded-2xl border-4 border-zinc-900 shadow-xl" alt="u2" />
             </div>
-            <div className="flex-1">
-              <h3 className="text-xl font-black text-white group-hover:text-red-500 transition-colors">
+            <div className="flex-1 overflow-hidden">
+              <h3 className="text-xl font-black text-white group-hover:text-red-500 transition-colors truncate">
                 {c.user1?.displayName} ↔ {c.user2?.displayName}
               </h3>
               <p className="text-zinc-500 text-sm font-medium mt-1 truncate max-w-md italic">"{c.lastMessage}"</p>
@@ -898,9 +926,10 @@ function AdminMessagesView({ onChatSelect }: { onChatSelect: (senderId: string, 
             </div>
           </motion.div>
         ))}
-        {conversations.length === 0 && (
+        {conversations.length === 0 && !migrating && (
           <div className="text-center py-20 bg-zinc-900/50 rounded-[3rem] border border-white/5">
-            <p className="text-zinc-600 font-black uppercase tracking-widest italic">No hay mensajes en el sistema</p>
+            <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm">No se encontraron conversaciones activas.</p>
+            <button onClick={handleMigrate} className="mt-6 text-red-500 font-black hover:underline uppercase tracking-widest text-xs">Sincronizar desde mensajes antiguos</button>
           </div>
         )}
       </div>
@@ -933,13 +962,17 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
     const qSent = query(
       collection(db, 'messages'),
       where('senderId', '==', effectiveProfileId),
-      where('receiverId', '==', effectiveTargetId)
+      where('receiverId', '==', effectiveTargetId),
+      orderBy('createdAt', 'desc'),
+      limit(100)
     );
 
     const qReceived = query(
       collection(db, 'messages'),
       where('senderId', '==', effectiveTargetId),
-      where('receiverId', '==', effectiveProfileId)
+      where('receiverId', '==', effectiveProfileId),
+      orderBy('createdAt', 'desc'),
+      limit(100)
     );
 
     const updateMessages = (sentDocs: any[], receivedDocs: any[]) => {
@@ -985,14 +1018,24 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
 
     try {
       console.log("Enviando mensaje de", profile.uid, "a", targetId);
+      const msgContent = newMessage.trim();
       await addDoc(collection(db, 'messages'), {
         senderId: profile.uid,
         receiverId: targetId,
-        content: newMessage.trim(),
+        content: msgContent,
         createdAt: serverTimestamp(),
         read: false,
         deletedByAdmin: false
       });
+
+      // Actualizar o crear la conversación para acceso rápido
+      const convId = [profile.uid, targetId].sort().join('_');
+      await setDoc(doc(db, 'conversations', convId), {
+        participants: [profile.uid, targetId],
+        lastMessage: msgContent,
+        lastTimestamp: serverTimestamp(),
+      }, { merge: true });
+
       console.log("Mensaje enviado con éxito");
       setNewMessage('');
     } catch (err: any) {
@@ -1043,7 +1086,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
               {msg.deletedByAdmin ? (
                 <div className="flex items-center gap-2">
                   <ShieldCheck size={14} />
-                  <span>Un Administrador borró este mensaje</span>
+                  <span>{profile.role === 'admin' ? `[BORRADO] ${msg.content}` : 'Un Administrador borró este mensaje'}</span>
                 </div>
               ) : (
                 msg.content
@@ -1054,8 +1097,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
                   onClick={async () => {
                     try {
                       await updateDoc(doc(db, 'messages', msg.id), {
-                        deletedByAdmin: true,
-                        content: '[BORRADO POR ADMIN]'
+                        deletedByAdmin: true
                       });
                     } catch (err: any) {
                       setError("Error al borrar mensaje: " + err.message);
