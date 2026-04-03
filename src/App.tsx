@@ -27,7 +27,8 @@ import {
   getDocs,
   updateDoc,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  limit
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { User, Post, Follow, Comment, Message } from './types';
@@ -802,10 +803,13 @@ function MessagesView({ profile, onChatSelect, setView }: { profile: User, onCha
 function AdminMessagesView({ onChatSelect }: { onChatSelect: (senderId: string, receiverId: string) => void }) {
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const userCache = useRef<Map<string, User>>(new Map());
 
   useEffect(() => {
-    const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, async (snapshot) => {
+    // Limitamos a los últimos 500 mensajes para obtener las conversaciones más recientes rápidamente
+    const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(500));
+    
+    const unsub = onSnapshot(q, async (snapshot) => {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
       
       const pairs = new Map();
@@ -817,29 +821,50 @@ function AdminMessagesView({ onChatSelect }: { onChatSelect: (senderId: string, 
             senderId: m.senderId,
             receiverId: m.receiverId,
             lastMessage: m.content,
-            createdAt: m.createdAt
+            createdAt: m.createdAt,
+            deletedByAdmin: m.deletedByAdmin
           });
         }
       });
 
-      const convos = await Promise.all(Array.from(pairs.values()).map(async (c) => {
+      const pairsArray = Array.from(pairs.values());
+      
+      // Función para obtener usuario con caché
+      const getUser = async (uid: string) => {
+        if (userCache.current.has(uid)) return userCache.current.get(uid);
+        const docSnap = await getDoc(doc(db, 'users', uid));
+        if (docSnap.exists()) {
+          const userData = { ...docSnap.data() } as User;
+          userCache.current.set(uid, userData);
+          return userData;
+        }
+        return null;
+      };
+
+      // Cargamos los perfiles de forma controlada
+      const convos = await Promise.all(pairsArray.map(async (c) => {
         const [u1, u2] = await Promise.all([
-          getDoc(doc(db, 'users', c.senderId)),
-          getDoc(doc(db, 'users', c.receiverId))
+          getUser(c.senderId),
+          getUser(c.receiverId)
         ]);
         return {
           ...c,
-          user1: u1.data() as User,
-          user2: u2.data() as User
+          user1: u1,
+          user2: u2
         };
       }));
 
       setConversations(convos);
       setLoading(false);
+    }, (error) => {
+      console.error("Error en supervisión de mensajes:", error);
+      setLoading(false);
     });
+
+    return unsub;
   }, []);
 
-  if (loading) return <Loading />;
+  if (loading && conversations.length === 0) return <Loading />;
 
   return (
     <div className="space-y-8">
