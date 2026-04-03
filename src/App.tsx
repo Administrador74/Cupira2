@@ -135,6 +135,82 @@ export default function App() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [pendingView, setPendingView] = useState<any>(null);
 
+  // --- Notifications Hook ---
+  useEffect(() => {
+    if (!profile) return;
+
+    // Solicitar permiso de notificaciones
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+
+    const startTime = Date.now();
+
+    // 1. Notificaciones de Mensajes
+    const qMsgs = query(
+      collection(db, 'messages'),
+      where('receiverId', '==', profile.uid),
+      where('createdAt', '>=', new Date(startTime)),
+      orderBy('createdAt', 'desc'),
+      limit(1)
+    );
+
+    const unsubMsgs = onSnapshot(qMsgs, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const msg = change.doc.data() as Message;
+          // Solo notificar si el mensaje es nuevo (después de cargar la app)
+          if (msg.createdAt && msg.createdAt.toMillis() > startTime) {
+            if (Notification.permission === "granted" && document.hidden) {
+              new Notification("Nuevo Mensaje en Cupira", {
+                body: msg.content,
+                icon: "/favicon.ico"
+              });
+            }
+          }
+        }
+      });
+    });
+
+    // 2. Notificaciones de Publicaciones (de personas que sigues)
+    const qFollows = query(collection(db, 'follows'), where('followerId', '==', profile.uid));
+    const unsubFollows = onSnapshot(qFollows, (snapFollows) => {
+      const followingIds = snapFollows.docs.map(d => d.data().followingId);
+      if (followingIds.length === 0) return;
+
+      const qPosts = query(
+        collection(db, 'posts'),
+        where('authorId', 'in', followingIds),
+        where('createdAt', '>=', new Date(startTime)),
+        orderBy('createdAt', 'desc'),
+        limit(1)
+      );
+
+      const unsubPosts = onSnapshot(qPosts, (snapPosts) => {
+        snapPosts.docChanges().forEach((change) => {
+          if (change.type === "added") {
+            const post = change.doc.data() as Post;
+            if (post.createdAt && post.createdAt.toMillis() > startTime) {
+              if (Notification.permission === "granted" && document.hidden) {
+                new Notification("Nueva Publicación", {
+                  body: `${post.authorName} ha compartido algo nuevo.`,
+                  icon: "/favicon.ico"
+                });
+              }
+            }
+          }
+        });
+      });
+
+      return () => unsubPosts();
+    });
+
+    return () => {
+      unsubMsgs();
+      unsubFollows();
+    };
+  }, [profile?.uid]);
+
   // Auth Listener
   useEffect(() => {
     console.log("Iniciando listener de autenticación...");
@@ -1180,11 +1256,20 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
               alt={targetUser.displayName}
               className="w-14 h-14 rounded-2xl object-cover border-2 border-white/10 shadow-2xl"
             />
+            {adminViewIds && (
+              <div className="absolute -top-2 -left-2 w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center border-2 border-zinc-900 shadow-xl">
+                <ShieldCheck size={16} className="text-white" />
+              </div>
+            )}
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-4 border-zinc-900 rounded-full"></div>
           </div>
           <div>
-            <h3 className="font-black text-white text-lg tracking-tight leading-none">{targetUser.displayName}</h3>
-            <span className="text-[10px] font-black text-green-500 uppercase tracking-[0.2em] mt-1 block">En línea</span>
+            <h3 className="font-black text-white text-lg tracking-tight leading-none">
+              {adminViewIds ? `${adminUser1?.displayName} & ${targetUser.displayName}` : targetUser.displayName}
+            </h3>
+            <span className={`text-[10px] font-black uppercase tracking-[0.2em] mt-1 block ${adminViewIds ? 'text-blue-500' : 'text-green-500'}`}>
+              {adminViewIds ? 'Supervisando Chat' : 'En línea'}
+            </span>
           </div>
         </div>
         <button onClick={onClose} className="p-3 hover:bg-zinc-800 rounded-2xl transition-all text-zinc-500 hover:text-white">
@@ -1207,6 +1292,11 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
                     ? 'bg-blue-600 text-white rounded-tl-none border border-white/5'
                     : 'bg-zinc-900 text-zinc-100 rounded-tl-none border border-white/5'
               } ${msg.deletedByAdmin ? 'italic opacity-60' : ''}`}>
+                {adminViewIds && !isAdminMsg && (
+                  <div className="text-[10px] font-black uppercase tracking-widest mb-2 text-zinc-500 flex items-center gap-1">
+                    {msg.senderId === adminViewIds.u1 ? adminUser1?.displayName : targetUser?.displayName}
+                  </div>
+                )}
                 {isAdminMsg && (
                   <div className="text-[10px] font-black uppercase tracking-widest mb-2 text-blue-200 flex items-center gap-1">
                     <ShieldCheck size={10} />
