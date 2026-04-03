@@ -44,6 +44,7 @@ export interface Message {
   createdAt: any;
   read?: boolean;
   deletedByAdmin?: boolean;
+  conversationId?: string;
 }
 
 export interface Conversation {

@@ -852,24 +852,35 @@ function AdminMessagesView({ onChatSelect }: { onChatSelect: (senderId: string, 
     try {
       const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'));
       const snap = await getDocs(q);
-      const msgs = snap.docs.map(doc => doc.data());
       
       const pairs = new Map();
-      msgs.forEach(m => {
-        const key = [m.senderId, m.receiverId].sort().join('_');
-        if (!pairs.has(key)) {
-          pairs.set(key, {
+      
+      // Migrar mensajes individuales para añadir conversationId y recolectar info de conversaciones
+      for (const messageDoc of snap.docs) {
+        const m = messageDoc.data();
+        const convId = [m.senderId, m.receiverId].sort().join('_');
+        
+        // Actualizar mensaje si no tiene conversationId
+        if (!m.conversationId) {
+          await updateDoc(doc(db, 'messages', messageDoc.id), {
+            conversationId: convId
+          });
+        }
+
+        if (!pairs.has(convId)) {
+          pairs.set(convId, {
             participants: [m.senderId, m.receiverId],
             lastMessage: m.content,
             lastTimestamp: m.createdAt
           });
         }
-      });
+      }
 
+      // Crear/Actualizar documentos de conversación
       for (const [id, data] of pairs.entries()) {
         await setDoc(doc(db, 'conversations', id), data, { merge: true });
       }
-      alert("Migración completada con éxito");
+      alert("Migración y sincronización completada con éxito");
     } catch (err) {
       console.error("Error en migración:", err);
       alert("Error en migración");
@@ -959,24 +970,17 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
     };
     fetchTarget();
 
-    const qSent = query(
+    const convId = [effectiveProfileId, effectiveTargetId].sort().join('_');
+
+    const q = query(
       collection(db, 'messages'),
-      where('senderId', '==', effectiveProfileId),
-      where('receiverId', '==', effectiveTargetId),
+      where('conversationId', '==', convId),
       orderBy('createdAt', 'desc'),
       limit(100)
     );
 
-    const qReceived = query(
-      collection(db, 'messages'),
-      where('senderId', '==', effectiveTargetId),
-      where('receiverId', '==', effectiveProfileId),
-      orderBy('createdAt', 'desc'),
-      limit(100)
-    );
-
-    const updateMessages = (sentDocs: any[], receivedDocs: any[]) => {
-      const allMsgs = [...sentDocs, ...receivedDocs]
+    const updateMessages = (docs: any[]) => {
+      const allMsgs = docs
         .map(doc => ({ id: doc.id, ...doc.data({ serverTimestamps: 'estimate' }) } as Message))
         .sort((a, b) => {
           const timeA = a.createdAt?.toMillis?.() || 0;
@@ -987,29 +991,14 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
       setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     };
 
-    let sentDocs: any[] = [];
-    let receivedDocs: any[] = [];
-
-    const unsubSent = onSnapshot(qSent, (snapshot) => {
-      sentDocs = snapshot.docs;
-      updateMessages(sentDocs, receivedDocs);
+    const unsub = onSnapshot(q, (snapshot) => {
+      updateMessages(snapshot.docs);
     }, (error) => {
-      console.error("Error en onSnapshot sent:", error);
-      setError("Error al recibir mensajes enviados: " + error.message);
+      console.error("Error en onSnapshot messages:", error);
+      setError("Error al recibir mensajes: " + error.message);
     });
 
-    const unsubReceived = onSnapshot(qReceived, (snapshot) => {
-      receivedDocs = snapshot.docs;
-      updateMessages(sentDocs, receivedDocs);
-    }, (error) => {
-      console.error("Error en onSnapshot received:", error);
-      setError("Error al recibir mensajes recibidos: " + error.message);
-    });
-
-    return () => {
-      unsubSent();
-      unsubReceived();
-    };
+    return () => unsub();
   }, [effectiveProfileId, effectiveTargetId]);
 
   const handleSend = async (e: React.FormEvent) => {
@@ -1017,11 +1006,13 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
     if (!newMessage.trim()) return;
 
     try {
-      console.log("Enviando mensaje de", profile.uid, "a", targetId);
       const msgContent = newMessage.trim();
+      const convId = [effectiveProfileId, effectiveTargetId].sort().join('_');
+      
       await addDoc(collection(db, 'messages'), {
         senderId: profile.uid,
-        receiverId: targetId,
+        receiverId: adminViewIds ? effectiveTargetId : targetId, // En modo admin, enviamos al "objetivo" de la vista
+        conversationId: convId,
         content: msgContent,
         createdAt: serverTimestamp(),
         read: false,
@@ -1029,9 +1020,8 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
       });
 
       // Actualizar o crear la conversación para acceso rápido
-      const convId = [profile.uid, targetId].sort().join('_');
       await setDoc(doc(db, 'conversations', convId), {
-        participants: [profile.uid, targetId],
+        participants: [effectiveProfileId, effectiveTargetId],
         lastMessage: msgContent,
         lastTimestamp: serverTimestamp(),
       }, { merge: true });
@@ -1076,65 +1066,80 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-zinc-950/50 custom-scrollbar">
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex ${msg.senderId === (adminViewIds ? adminViewIds.u1 : profile.uid) ? 'justify-end' : 'justify-start'} group/msg`}>
-            <div className={`max-w-[85%] p-5 rounded-[2rem] font-medium text-sm shadow-2xl relative ${
-              msg.senderId === (adminViewIds ? adminViewIds.u1 : profile.uid)
-                ? 'bg-red-600 text-white rounded-tr-none shadow-red-600/10' 
-                : 'bg-zinc-900 text-zinc-100 rounded-tl-none border border-white/5'
-            } ${msg.deletedByAdmin ? 'italic opacity-60' : ''}`}>
-              {msg.deletedByAdmin ? (
-                <div className="flex items-center gap-2">
-                  <ShieldCheck size={14} />
-                  <span>{profile.role === 'admin' ? `[BORRADO] ${msg.content}` : 'Un Administrador borró este mensaje'}</span>
-                </div>
-              ) : (
-                msg.content
-              )}
-              
-              {profile.role === 'admin' && !msg.deletedByAdmin && (
-                <button 
-                  onClick={async () => {
-                    try {
-                      await updateDoc(doc(db, 'messages', msg.id), {
-                        deletedByAdmin: true
-                      });
-                    } catch (err: any) {
-                      setError("Error al borrar mensaje: " + err.message);
-                    }
-                  }}
-                  className="absolute -top-2 -right-2 bg-zinc-800 text-red-500 p-2 rounded-full shadow-xl opacity-0 group-hover/msg:opacity-100 transition-opacity hover:bg-red-600 hover:text-white"
-                  title="Borrar mensaje"
-                >
-                  <Trash2 size={12} strokeWidth={3} />
-                </button>
-              )}
+        {messages.map((msg) => {
+          const isMe = msg.senderId === profile.uid;
+          const isAdminMsg = msg.senderId !== effectiveProfileId && msg.senderId !== effectiveTargetId;
+          
+          return (
+            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} group/msg`}>
+              <div className={`max-w-[85%] p-5 rounded-[2rem] font-medium text-sm shadow-2xl relative ${
+                isMe
+                  ? 'bg-red-600 text-white rounded-tr-none shadow-red-600/10' 
+                  : isAdminMsg
+                    ? 'bg-blue-600 text-white rounded-tl-none border border-white/5'
+                    : 'bg-zinc-900 text-zinc-100 rounded-tl-none border border-white/5'
+              } ${msg.deletedByAdmin ? 'italic opacity-60' : ''}`}>
+                {isAdminMsg && (
+                  <div className="text-[10px] font-black uppercase tracking-widest mb-2 text-blue-200 flex items-center gap-1">
+                    <ShieldCheck size={10} />
+                    Administrador
+                  </div>
+                )}
+                {msg.deletedByAdmin ? (
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck size={14} />
+                    <span>{profile.role === 'admin' ? `[BORRADO] ${msg.content}` : 'Un Administrador borró este mensaje'}</span>
+                  </div>
+                ) : (
+                  msg.content
+                )}
+                
+                {profile.role === 'admin' && !msg.deletedByAdmin && (
+                  <button 
+                    onClick={async () => {
+                      try {
+                        await updateDoc(doc(db, 'messages', msg.id), {
+                          deletedByAdmin: true
+                        });
+                      } catch (err: any) {
+                        setError("Error al borrar mensaje: " + err.message);
+                      }
+                    }}
+                    className="absolute -top-2 -right-2 bg-zinc-800 text-red-500 p-2 rounded-full shadow-xl opacity-0 group-hover/msg:opacity-100 transition-opacity hover:bg-red-600 hover:text-white"
+                    title="Borrar mensaje"
+                  >
+                    <Trash2 size={12} strokeWidth={3} />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={scrollRef} />
       </div>
 
       {/* Input */}
-      {!adminViewIds && (
+      {(profile.role === 'admin' || !adminViewIds) && (
         <form onSubmit={handleSend} className="p-8 bg-zinc-900 border-t border-white/5 flex gap-4">
           <input 
             type="text" 
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Escribe un mensaje..."
-            className="flex-1 bg-zinc-800/50 border-2 border-transparent rounded-[1.5rem] px-6 py-4 text-sm font-black text-white focus:border-red-500/20 focus:bg-zinc-800 focus:ring-4 focus:ring-red-500/5 outline-none transition-all placeholder:text-zinc-600"
+            placeholder={adminViewIds ? "Intervenir en el chat..." : "Escribe un mensaje..."}
+            className={`flex-1 bg-zinc-800/50 border-2 border-transparent rounded-[1.5rem] px-6 py-4 text-sm font-black text-white focus:bg-zinc-800 focus:ring-4 outline-none transition-all placeholder:text-zinc-600 ${
+              adminViewIds ? 'focus:border-blue-500/20 focus:ring-blue-500/5' : 'focus:border-red-500/20 focus:ring-red-500/5'
+            }`}
           />
           <button 
             type="submit"
             disabled={!newMessage.trim()}
-            className="bg-red-600 text-white p-4 rounded-[1.5rem] shadow-2xl shadow-red-600/20 hover:bg-red-700 transition-all disabled:opacity-30 disabled:shadow-none active:scale-90"
+            className={`${adminViewIds ? 'bg-blue-600 shadow-blue-600/20 hover:bg-blue-700' : 'bg-red-600 shadow-red-600/20 hover:bg-red-700'} text-white p-4 rounded-[1.5rem] shadow-2xl transition-all disabled:opacity-30 disabled:shadow-none active:scale-90`}
           >
             <Send size={24} strokeWidth={3} />
           </button>
         </form>
       )}
-      {adminViewIds && (
+      {!adminViewIds && profile.role !== 'admin' && false && (
         <div className="p-8 bg-zinc-900 border-t border-white/5 text-center">
           <p className="text-zinc-500 font-black text-xs uppercase tracking-widest">Modo Supervisión - Solo Lectura</p>
         </div>

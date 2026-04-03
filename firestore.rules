@@ -51,7 +51,7 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid || isAdmin());
       allow create: if isAuthenticated() && 
                       (request.resource.data.senderId == request.auth.uid || isAdmin()) &&
-                      request.resource.data.keys().hasAll(['senderId', 'receiverId', 'content', 'createdAt', 'read']) &&
+                      request.resource.data.keys().hasAll(['senderId', 'receiverId', 'content', 'createdAt', 'read', 'conversationId']) &&
                       request.resource.data.content is string &&
                       request.resource.data.content.size() > 0;
       allow update: if (isAuthenticated() && resource.data.receiverId == request.auth.uid && 
