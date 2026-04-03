@@ -137,37 +137,35 @@ export default function App() {
   // Auth Listener
   useEffect(() => {
     console.log("Iniciando listener de autenticación...");
+    let unsubProfile: (() => void) | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       console.log("Estado de Auth cambiado:", u ? `Usuario: ${u.email}` : "Sin usuario");
       if (u) {
         setUser(u);
-        try {
-          const docRef = doc(db, 'users', u.uid);
-          const docSnap = await getDoc(docRef);
+        // Listener en tiempo real para el perfil del usuario logueado
+        unsubProfile = onSnapshot(doc(db, 'users', u.uid), (docSnap) => {
           if (docSnap.exists()) {
             const profileData = docSnap.data() as User;
-            console.log("Perfil encontrado:", profileData);
+            console.log("Perfil actualizado en tiempo real:", profileData);
             setProfile(profileData);
-            // Solo cambiamos a 'main' si venimos de login/register y no hay un mensaje de éxito pendiente
             if ((view === 'login' || view === 'register') && !successMessage) {
-              console.log("Cambiando a vista main");
               setView('main');
             }
           } else {
             console.warn("Perfil no encontrado para el UID:", u.uid);
-            // Si estamos en login y no hay perfil, algo salió mal
             if (view === 'login' && !successMessage) {
-              setError("No se encontró el perfil de usuario. Por favor, contacta a soporte.");
-              await signOut(auth);
+              setError("No se encontró el perfil de usuario.");
+              signOut(auth);
             }
-            setProfile(null);
           }
-        } catch (error: any) {
-          console.error("Error al obtener perfil:", error);
-          setError("Error al cargar perfil: " + error.message);
-        }
+        }, (err) => {
+          console.error("Error en listener de perfil:", err);
+          setError("Error al conectar con el perfil: " + err.message);
+        });
       } else {
         console.log("Usuario desconectado");
+        if (unsubProfile) unsubProfile();
         setUser(null);
         setProfile(null);
         if (!thanksMessage && !successMessage && view !== 'register') {
@@ -176,7 +174,10 @@ export default function App() {
       }
       setLoading(false);
     });
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      if (unsubProfile) unsubProfile();
+    };
   }, [thanksMessage, successMessage, view]);
 
   const handleLogout = async () => {
@@ -1119,9 +1120,7 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
   };
 
   const deletePost = async () => {
-    if (window.confirm('¿Eliminar publicación?')) {
-      await deleteDoc(doc(db, 'posts', post.id));
-    }
+    await deleteDoc(doc(db, 'posts', post.id));
   };
 
   return (
@@ -1262,17 +1261,16 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const uid = targetUserId || profile.uid;
+  const canEdit = isOwn || profile.role === 'admin';
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const docSnap = await getDoc(doc(db, 'users', uid));
+    const unsubProfile = onSnapshot(doc(db, 'users', uid), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data() as User;
         setTargetProfile(data);
         setEditData({ location: data.location || '', status: data.status || '' });
       }
-    };
-    fetchProfile();
+    });
 
     const qPosts = query(collection(db, 'posts'), where('authorId', '==', uid), orderBy('createdAt', 'desc'));
     const unsubPosts = onSnapshot(qPosts, (snapshot) => {
@@ -1290,7 +1288,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
       setFollowing(snapshot.docs.map(doc => doc.data().followingId));
     });
 
-    return () => { unsubPosts(); unsubFollowers(); unsubFollowing(); };
+    return () => { unsubProfile(); unsubPosts(); unsubFollowers(); unsubFollowing(); };
   }, [uid, profile.uid]);
 
   const handleFollow = async () => {
@@ -1309,15 +1307,32 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
   const handleUpdateImage = async (type: 'photoURL' | 'coverURL' | 'gallery', e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validar tamaño del archivo (máximo 150KB para evitar límites de Firestore con base64 en el documento de usuario)
+      if (file.size > 150 * 1024) {
+        alert("La imagen es demasiado grande. Por favor, elige una de menos de 150KB para asegurar que se guarde correctamente.");
+        e.target.value = ''; // Reset input
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = async () => {
         const dataUrl = reader.result as string;
-        if (type === 'gallery') {
-          await updateDoc(doc(db, 'users', profile.uid), { gallery: arrayUnion(dataUrl) });
-          if (targetProfile) setTargetProfile({ ...targetProfile, gallery: [...(targetProfile.gallery || []), dataUrl] });
-        } else {
-          await updateDoc(doc(db, 'users', profile.uid), { [type]: dataUrl });
-          if (targetProfile) setTargetProfile({ ...targetProfile, [type]: dataUrl });
+        try {
+          if (type === 'gallery') {
+            await updateDoc(doc(db, 'users', uid), { gallery: arrayUnion(dataUrl) });
+          } else {
+            await updateDoc(doc(db, 'users', uid), { [type]: dataUrl });
+          }
+          console.log(`Imagen ${type} actualizada con éxito para ${uid}`);
+        } catch (err: any) {
+          console.error("Error al actualizar imagen:", err);
+          if (err.message.includes('quota')) {
+            alert("Error: Se ha excedido la cuota de almacenamiento. Intenta con una imagen más pequeña.");
+          } else {
+            alert("Error al guardar la imagen: " + err.message);
+          }
+        } finally {
+          e.target.value = ''; // Reset input
         }
       };
       reader.readAsDataURL(file);
@@ -1325,12 +1340,17 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
   };
 
   const handleSaveProfile = async () => {
-    await updateDoc(doc(db, 'users', profile.uid), {
-      location: editData.location,
-      status: editData.status
-    });
-    setTargetProfile(prev => prev ? { ...prev, ...editData } : null);
-    setIsEditing(false);
+    try {
+      await updateDoc(doc(db, 'users', uid), {
+        location: editData.location,
+        status: editData.status
+      });
+      setIsEditing(false);
+      console.log("Perfil guardado con éxito");
+    } catch (err: any) {
+      console.error("Error al guardar perfil:", err);
+      alert("Error al guardar los cambios: " + err.message);
+    }
   };
 
   const fetchUsersList = async (ids: string[]) => {
@@ -1363,7 +1383,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
         <div className="h-64 bg-zinc-800 relative group">
           <img src={targetProfile.coverURL} alt="cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-60" />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80"></div>
-          {isOwn && (
+          {canEdit && (
             <>
               <button onClick={() => coverInputRef.current?.click()} className="absolute bottom-6 right-6 bg-white/10 backdrop-blur-md text-white p-4 rounded-2xl hover:bg-white/20 transition-all shadow-xl border border-white/10">
                 <Camera size={24} strokeWidth={2.5} />
@@ -1379,7 +1399,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
               <div className="w-44 h-44 rounded-[3rem] border-8 border-zinc-900 bg-zinc-900 overflow-hidden shadow-2xl transition-transform group-hover/avatar:scale-105 duration-500">
                 <img src={targetProfile.photoURL} alt="profile" className="w-full h-full object-cover" />
               </div>
-              {isOwn && (
+              {canEdit && (
                 <>
                   <button onClick={() => photoInputRef.current?.click()} className="absolute bottom-2 right-2 bg-red-600 text-white p-4 rounded-2xl border-4 border-zinc-900 hover:bg-red-700 transition-all shadow-2xl active:scale-90">
                     <Camera size={22} strokeWidth={2.5} />
@@ -1434,7 +1454,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
             </div>
             
             <div className="flex gap-3">
-              {isOwn && !isEditing && (
+              {canEdit && !isEditing && (
                 <button 
                   onClick={() => setIsEditing(true)} 
                   className="px-8 py-4 bg-zinc-800 text-white rounded-[1.5rem] font-black text-sm shadow-xl border border-white/5 hover:bg-zinc-700 transition-all active:scale-95 uppercase tracking-widest"
@@ -1487,7 +1507,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
       >
         <div className="flex justify-between items-center mb-8">
           <h2 className="font-black text-3xl text-white tracking-tighter uppercase">Galería de Fotos</h2>
-          {isOwn && (
+          {canEdit && (
             <>
               <button 
                 onClick={() => galleryInputRef.current?.click()} 
@@ -1505,9 +1525,26 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
             <motion.div 
               key={idx} 
               whileHover={{ scale: 1.05, rotate: idx % 2 === 0 ? 1 : -1 }}
-              className="aspect-square rounded-[2.5rem] overflow-hidden border-4 border-zinc-800 shadow-2xl bg-zinc-800 cursor-pointer group"
+              className="aspect-square rounded-[2.5rem] overflow-hidden border-4 border-zinc-800 shadow-2xl bg-zinc-800 cursor-pointer group relative"
             >
               <img src={img} alt={`gallery-${idx}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+              {canEdit && (
+                <button 
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      await updateDoc(doc(db, 'users', uid), { gallery: arrayRemove(img) });
+                      console.log("Foto eliminada de la galería");
+                    } catch (err: any) {
+                      console.error("Error al eliminar foto:", err);
+                      alert("Error al eliminar la foto: " + err.message);
+                    }
+                  }}
+                  className="absolute top-4 right-4 bg-red-600 text-white p-3 rounded-2xl opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-xl shadow-red-600/20"
+                >
+                  <Trash2 size={18} strokeWidth={3} />
+                </button>
+              )}
             </motion.div>
           ))}
           {(!targetProfile.gallery || targetProfile.gallery.length === 0) && (
