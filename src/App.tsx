@@ -688,17 +688,19 @@ function Register({ setView, setSuccessMessage, setPendingView }: { setView: (v:
 
 function MessagesView({ profile, onChatSelect, setView }: { profile: User, onChatSelect: (uid: string) => void, setView: (v: any) => void }) {
   const [conversations, setConversations] = useState<any[]>([]);
+  const [friends, setFriends] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const userCache = useRef<Map<string, User>>(new Map());
 
   useEffect(() => {
-    const q = query(
+    // 1. Cargar Conversaciones Activas
+    const qConvs = query(
       collection(db, 'conversations'),
       where('participants', 'array-contains', profile.uid),
       orderBy('lastTimestamp', 'desc')
     );
 
-    const unsub = onSnapshot(q, async (snapshot) => {
+    const unsubConvs = onSnapshot(qConvs, async (snapshot) => {
       const convs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Conversation));
       
       const getUser = async (uid: string) => {
@@ -720,64 +722,137 @@ function MessagesView({ profile, onChatSelect, setView }: { profile: User, onCha
       }));
 
       setConversations(enriched.filter(c => c !== null));
-      setLoading(false);
+      
+      // 2. Cargar Amigos (Seguidores Mutuos) que NO tienen conversación aún
+      const qFollowing = query(collection(db, 'follows'), where('followerId', '==', profile.uid));
+      const qFollowers = query(collection(db, 'follows'), where('followingId', '==', profile.uid));
+
+      const unsubFollowing = onSnapshot(qFollowing, (snapFollowing) => {
+        const followingIds = snapFollowing.docs.map(d => d.data().followingId);
+        
+        onSnapshot(qFollowers, async (snapFollowers) => {
+          const followerIds = snapFollowers.docs.map(d => d.data().followerId);
+          const mutualIds = followingIds.filter(id => followerIds.includes(id));
+          
+          // Filtrar los que ya tienen conversación
+          const existingChatUserIds = convs.flatMap(c => c.participants).filter(id => id !== profile.uid);
+          const potentialNewChatIds = mutualIds.filter(id => !existingChatUserIds.includes(id));
+
+          if (potentialNewChatIds.length > 0) {
+            const profiles = await Promise.all(
+              potentialNewChatIds.map(async (id) => await getUser(id))
+            );
+            setFriends(profiles.filter((p): p is User => p !== null));
+          } else {
+            setFriends([]);
+          }
+          setLoading(false);
+        });
+      });
     }, (error) => {
       console.error("Error en MessagesView:", error);
       setLoading(false);
     });
 
-    return unsub;
+    return () => unsubConvs();
   }, [profile.uid]);
 
   if (loading) return <Loading />;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-12 pb-20">
       <div className="flex items-center justify-between mb-10 px-4">
         <h1 className="text-5xl font-black text-white tracking-tighter uppercase">Mensajes</h1>
         <div className="bg-red-600/20 text-red-500 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest border border-red-500/10">
-          {conversations.length} Chats
+          {conversations.length + friends.length} Contactos
         </div>
       </div>
 
-      {conversations.length === 0 ? (
+      {/* Chats Activos */}
+      {conversations.length > 0 && (
+        <section className="space-y-6">
+          <h2 className="text-xs font-black text-zinc-500 uppercase tracking-[0.3em] px-4 flex items-center gap-3">
+            <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
+            Chats Recientes
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {conversations.map((conv) => (
+              <motion.div
+                key={conv.id}
+                whileHover={{ scale: 1.02, y: -5 }}
+                onClick={() => onChatSelect(conv.otherUser.uid)}
+                className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] border border-white/10 shadow-2xl flex items-center gap-6 cursor-pointer group"
+              >
+                <div className="relative">
+                  <img 
+                    src={conv.otherUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${conv.otherUser.uid}`} 
+                    className="w-20 h-20 rounded-[2rem] object-cover border-2 border-white/10 shadow-2xl group-hover:scale-110 transition-transform duration-500"
+                    alt="avatar"
+                  />
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-4 border-zinc-900 rounded-full"></div>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <h3 className="text-xl font-black text-white group-hover:text-red-500 transition-colors tracking-tight truncate">{conv.otherUser.displayName}</h3>
+                  <p className="text-zinc-500 text-sm font-medium truncate mt-1 italic">"{conv.lastMessage}"</p>
+                </div>
+                <div className="bg-zinc-800 p-4 rounded-2xl text-zinc-600 group-hover:bg-red-600 group-hover:text-white transition-all shadow-xl">
+                  <ArrowRight size={24} strokeWidth={3} />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Amigos para iniciar chat */}
+      {friends.length > 0 && (
+        <section className="space-y-6">
+          <h2 className="text-xs font-black text-zinc-500 uppercase tracking-[0.3em] px-4 flex items-center gap-3">
+            <PlusCircle size={16} className="text-red-500" />
+            Iniciar Nuevo Chat
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {friends.map((friend) => (
+              <motion.div
+                key={friend.uid}
+                whileHover={{ scale: 1.02, y: -5 }}
+                onClick={() => onChatSelect(friend.uid)}
+                className="bg-zinc-900/40 backdrop-blur-xl p-8 rounded-[3rem] border border-dashed border-white/10 shadow-xl flex items-center gap-6 cursor-pointer group"
+              >
+                <img 
+                  src={friend.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${friend.uid}`} 
+                  className="w-16 h-16 rounded-[1.5rem] object-cover border-2 border-white/5 opacity-70 group-hover:opacity-100 transition-all"
+                  alt="friend"
+                />
+                <div className="flex-1">
+                  <h3 className="text-lg font-black text-zinc-300 group-hover:text-white transition-colors">{friend.displayName}</h3>
+                  <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mt-1">¡Saluda ahora!</p>
+                </div>
+                <div className="p-4 text-zinc-700 group-hover:text-red-500 transition-colors">
+                  <MessageSquare size={24} strokeWidth={3} />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {conversations.length === 0 && friends.length === 0 && (
         <div className="bg-zinc-900/50 backdrop-blur-xl p-20 rounded-[4rem] text-center border border-white/5 shadow-2xl">
           <div className="w-32 h-32 bg-zinc-800 text-zinc-700 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-inner">
-            <MessageSquare size={64} strokeWidth={1} />
+            <Search size={64} strokeWidth={1} />
           </div>
-          <h3 className="text-3xl font-black text-white mb-4 tracking-tight uppercase">No hay chats todavía</h3>
-          <p className="text-zinc-500 max-w-sm mx-auto font-medium leading-relaxed italic">Empieza una conversación buscando a alguien en la lupa.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {conversations.map((conv) => (
-            <motion.div
-              key={conv.id}
-              whileHover={{ scale: 1.02, y: -8 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => onChatSelect(conv.otherUser.uid)}
-              className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] border border-white/10 shadow-2xl flex items-center gap-6 cursor-pointer group"
-            >
-              <div className="relative">
-                <img 
-                  src={conv.otherUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${conv.otherUser.uid}`} 
-                  alt={conv.otherUser.displayName}
-                  className="w-20 h-20 rounded-[2rem] object-cover border-2 border-white/10 shadow-2xl group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-4 border-zinc-900 rounded-full shadow-lg"></div>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <h3 className="text-xl font-black text-white group-hover:text-red-500 transition-colors tracking-tight truncate">{conv.otherUser.displayName}</h3>
-                <p className="text-zinc-500 text-sm font-medium truncate mt-1 italic">"{conv.lastMessage}"</p>
-              </div>
-              <div className="bg-zinc-800 p-4 rounded-2xl text-zinc-600 group-hover:bg-red-600 group-hover:text-white transition-all shadow-xl border border-white/5 group-hover:shadow-red-600/20 active:scale-90">
-                <ArrowRight size={24} strokeWidth={3} />
-              </div>
-            </motion.div>
-          ))}
+          <h3 className="text-3xl font-black text-white mb-4 tracking-tight uppercase">Busca a alguien</h3>
+          <p className="text-zinc-500 max-w-sm mx-auto font-medium leading-relaxed italic mb-8">Usa la lupa para encontrar usuarios, entra en su perfil y pulsa "Mensaje".</p>
+          <button 
+            onClick={() => setView('search')}
+            className="bg-red-600 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl shadow-red-600/20 hover:scale-105 transition-all"
+          >
+            Ir a Buscar
+          </button>
         </div>
       )}
-      
+
       {profile.role === 'admin' && (
         <div className="mt-12 pt-12 border-t border-white/5">
           <button 
