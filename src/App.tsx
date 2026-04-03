@@ -327,6 +327,7 @@ export default function App() {
                   {view === 'search' && <SearchView profile={profile} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
                   {view === 'messages' && <MessagesView profile={profile} setView={setView} onChatSelect={(uid) => setChatTargetId(uid)} />}
                   {view === 'admin-messages' && <AdminMessagesView onChatSelect={(u1, u2) => setChatTargetId(`${u1}_${u2}`)} />}
+                  {view === 'admin-users' && <AdminUsersView onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
                   {view === 'other-profile' && selectedUserId && (
                     <ProfileView 
                       profile={profile} 
@@ -870,6 +871,22 @@ function MessagesView({ profile, onChatSelect, setView }: { profile: User, onCha
             </div>
             <ArrowRight size={32} className="text-zinc-700 group-hover:text-red-500 group-hover:translate-x-2 transition-all" strokeWidth={3} />
           </button>
+
+          <button 
+            onClick={() => setView('admin-users')}
+            className="w-full mt-6 bg-zinc-900 hover:bg-zinc-800 p-8 rounded-[3rem] border border-white/10 flex items-center justify-between group transition-all"
+          >
+            <div className="flex items-center gap-6">
+              <div className="bg-blue-600 p-5 rounded-2xl shadow-xl shadow-blue-600/20 group-hover:scale-110 transition-transform">
+                <Users size={32} className="text-white" strokeWidth={3} />
+              </div>
+              <div className="text-left">
+                <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Gestión de Usuarios</h3>
+                <p className="text-zinc-500 font-medium italic">Ver datos de acceso y perfiles de todos los usuarios</p>
+              </div>
+            </div>
+            <ArrowRight size={32} className="text-zinc-700 group-hover:text-red-500 group-hover:translate-x-2 transition-all" strokeWidth={3} />
+          </button>
         </div>
       )}
     </div>
@@ -1253,6 +1270,7 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin }: { setView: (v
     { id: 'search', icon: Search, label: 'Buscar' },
     { id: 'messages', icon: MessageSquare, label: 'Mensajes' },
     { id: 'profile', icon: UserIcon, label: 'Perfil' },
+    ...(isAdmin ? [{ id: 'admin-users', icon: ShieldCheck, label: 'Admin' }] : [])
   ];
 
   return (
@@ -1265,15 +1283,6 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin }: { setView: (v
         >
           <Users className="text-white" size={32} strokeWidth={3} />
         </motion.div>
-        {isAdmin && (
-          <motion.div 
-            whileHover={{ scale: 1.1, rotate: 10 }}
-            className="text-red-500" 
-            title="Administrador"
-          >
-            <ShieldCheck size={36} strokeWidth={3} />
-          </motion.div>
-        )}
       </div>
       {items.map((item) => (
         <button 
@@ -2098,7 +2107,116 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
   );
 }
 
-// --- Search View ---
+// --- Admin Users View ---
+
+function AdminUsersView({ onUserClick }: { onUserClick: (uid: string) => void }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(collection(db, 'users'), orderBy('displayName', 'asc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      setUsers(snapshot.docs.map(doc => doc.data() as User));
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  const filteredUsers = users.filter(u => 
+    u.displayName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    u.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleResetPassword = async (email: string) => {
+    if (!window.confirm(`¿Enviar correo de restablecimiento de contraseña a ${email}?`)) return;
+    try {
+      await sendPasswordResetEmail(auth, email);
+      alert("Correo de restablecimiento enviado con éxito.");
+    } catch (err: any) {
+      alert("Error al enviar el correo: " + err.message);
+    }
+  };
+
+  if (loading) return <Loading />;
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-5xl font-black text-white tracking-tighter uppercase">Gestión de Usuarios</h1>
+          <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs mt-2">Panel de Administración / Usuarios</p>
+        </div>
+        <div className="bg-zinc-900/80 backdrop-blur-xl px-8 py-4 rounded-3xl border border-white/10 flex items-center gap-4">
+          <Users className="text-red-500" size={24} strokeWidth={3} />
+          <span className="text-xl font-black text-white">{users.length}</span>
+          <span className="text-zinc-500 font-black text-[10px] uppercase tracking-widest">Total</span>
+        </div>
+      </div>
+
+      <div className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/10">
+        <div className="relative group">
+          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-red-500 transition-colors" size={28} strokeWidth={3} />
+          <input 
+            type="text" 
+            placeholder="Busca por nombre o correo electrónico..." 
+            className="w-full pl-16 pr-8 py-6 bg-zinc-800/50 rounded-[2rem] border-2 border-transparent focus:border-red-500/20 focus:bg-zinc-800 focus:ring-4 focus:ring-red-500/5 outline-none transition-all text-xl font-black text-white placeholder:text-zinc-600 shadow-inner"
+            value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        {filteredUsers.map((u) => (
+          <motion.div 
+            key={u.uid}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-8 group"
+          >
+            <div className="flex items-center gap-6 cursor-pointer" onClick={() => onUserClick(u.uid)}>
+              <img src={u.photoURL} alt="avatar" className="w-20 h-20 rounded-[2rem] shadow-2xl group-hover:scale-110 transition-transform duration-500 border-2 border-white/10" />
+              <div>
+                <h3 className="text-2xl font-black text-white group-hover:text-red-500 transition-colors tracking-tight">{u.displayName}</h3>
+                <p className="text-sm font-bold text-zinc-400 mt-1">{u.email}</p>
+                <div className="flex gap-3 mt-3">
+                  <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${u.role === 'admin' ? 'bg-red-600/20 text-red-500' : 'bg-blue-600/20 text-blue-500'}`}>
+                    {u.role === 'admin' ? 'Administrador' : 'Miembro'}
+                  </span>
+                  <span className="px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-zinc-800 text-zinc-500">
+                    UID: {u.uid.substring(0, 8)}...
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4">
+              <button 
+                onClick={() => handleResetPassword(u.email)}
+                className="flex-1 md:flex-none px-8 py-4 bg-zinc-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-zinc-700 transition-all border border-white/5 active:scale-95"
+              >
+                Resetear Clave
+              </button>
+              <button 
+                onClick={() => onUserClick(u.uid)}
+                className="flex-1 md:flex-none px-8 py-4 bg-red-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-700 transition-all shadow-xl shadow-red-600/20 active:scale-95"
+              >
+                Ver Perfil
+              </button>
+            </div>
+          </motion.div>
+        ))}
+
+        {filteredUsers.length === 0 && (
+          <div className="text-center py-20 bg-zinc-900/50 rounded-[4rem] border border-white/5">
+            <Search size={64} className="mx-auto text-zinc-800 mb-6" strokeWidth={1} />
+            <p className="text-zinc-600 font-black text-xl uppercase tracking-[0.2em] italic">No se encontraron usuarios</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function SearchView({ profile, onUserClick }: { profile: User, onUserClick: (uid: string) => void }) {
   const [searchTerm, setSearchTerm] = useState('');
