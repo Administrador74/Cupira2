@@ -49,7 +49,9 @@ import {
   ArrowRight,
   MoreVertical,
   MessageSquare,
-  ChevronLeft
+  ChevronLeft,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -328,6 +330,7 @@ function Login({ setView, setSuccessMessage, setPendingView }: { setView: (v: an
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -416,14 +419,23 @@ function Login({ setView, setSuccessMessage, setPendingView }: { setView: (v: an
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Contraseña</label>
-            <input 
-              type="password" 
-              className="w-full px-6 py-4 bg-zinc-800/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none transition-all text-white font-medium"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                className="w-full px-6 py-4 bg-zinc-800/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none transition-all text-white font-medium pr-14"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
           </div>
           
           <button 
@@ -467,6 +479,7 @@ function Register({ setView, setSuccessMessage, setPendingView }: { setView: (v:
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -563,22 +576,31 @@ function Register({ setView, setSuccessMessage, setPendingView }: { setView: (v:
               required
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Contraseña</label>
-              <input 
-                type="password" 
-                className="w-full px-6 py-4 bg-zinc-800/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none transition-all text-white font-medium"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  className="w-full px-6 py-4 bg-zinc-800/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none transition-all text-white font-medium pr-14"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Confirmar</label>
+              <label className="text-[10px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Confirmar Contraseña</label>
               <input 
-                type="password" 
+                type={showPassword ? "text" : "password"} 
                 className="w-full px-6 py-4 bg-zinc-800/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none transition-all text-white font-medium"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -723,32 +745,53 @@ function ChatWindow({ profile, targetId, onClose, setError }: { profile: User, t
     };
     fetchTarget();
 
-    const q = query(
+    const qSent = query(
       collection(db, 'messages'),
-      where('senderId', 'in', [profile.uid, targetId])
+      where('senderId', '==', profile.uid),
+      where('receiverId', '==', targetId)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs
+    const qReceived = query(
+      collection(db, 'messages'),
+      where('senderId', '==', targetId),
+      where('receiverId', '==', profile.uid)
+    );
+
+    const updateMessages = (sentDocs: any[], receivedDocs: any[]) => {
+      const allMsgs = [...sentDocs, ...receivedDocs]
         .map(doc => ({ id: doc.id, ...doc.data({ serverTimestamps: 'estimate' }) } as Message))
-        .filter(m => 
-          (m.senderId === profile.uid && m.receiverId === targetId) || 
-          (m.senderId === targetId && m.receiverId === profile.uid)
-        )
         .sort((a, b) => {
           const timeA = a.createdAt?.toMillis?.() || 0;
           const timeB = b.createdAt?.toMillis?.() || 0;
           return timeA - timeB;
         });
-        
-      setMessages(msgs);
+      setMessages(allMsgs);
       setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    };
+
+    let sentDocs: any[] = [];
+    let receivedDocs: any[] = [];
+
+    const unsubSent = onSnapshot(qSent, (snapshot) => {
+      sentDocs = snapshot.docs;
+      updateMessages(sentDocs, receivedDocs);
     }, (error) => {
-      console.error("Error en onSnapshot de mensajes:", error);
-      setError("Error al recibir mensajes en tiempo real: " + error.message);
+      console.error("Error en onSnapshot sent:", error);
+      setError("Error al recibir mensajes enviados: " + error.message);
     });
 
-    return () => unsubscribe();
+    const unsubReceived = onSnapshot(qReceived, (snapshot) => {
+      receivedDocs = snapshot.docs;
+      updateMessages(sentDocs, receivedDocs);
+    }, (error) => {
+      console.error("Error en onSnapshot received:", error);
+      setError("Error al recibir mensajes recibidos: " + error.message);
+    });
+
+    return () => {
+      unsubSent();
+      unsubReceived();
+    };
   }, [profile.uid, targetId]);
 
   const handleSend = async (e: React.FormEvent) => {
