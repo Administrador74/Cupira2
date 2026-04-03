@@ -1274,7 +1274,7 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin }: { setView: (v
   ];
 
   return (
-    <nav className="fixed bottom-4 left-4 right-4 md:left-4 md:top-4 md:bottom-4 md:w-24 bg-zinc-900/90 backdrop-blur-2xl border border-white/10 rounded-[3rem] flex md:flex-col items-center justify-around md:justify-start md:pt-12 md:space-y-10 p-4 z-50 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)]">
+    <nav className="fixed bottom-4 left-4 right-4 md:left-4 md:top-4 md:bottom-4 md:w-24 bg-zinc-900/90 backdrop-blur-2xl border border-white/10 rounded-[3rem] flex md:flex-col items-center justify-around md:justify-start md:pt-12 md:space-y-10 p-2 md:p-4 z-50 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)]">
       <div className="hidden md:flex flex-col items-center space-y-6 mb-4">
         <motion.div 
           whileHover={{ scale: 1.1, rotate: 5 }}
@@ -1288,27 +1288,27 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin }: { setView: (v
         <button 
           key={item.id} 
           onClick={() => setView(item.id)}
-          className="relative p-4 group transition-all"
+          className="relative p-3 md:p-4 group transition-all"
         >
           {currentView === item.id && (
             <motion.div 
               layoutId="nav-active"
-              className="absolute inset-0 bg-red-600 rounded-[1.5rem] -z-10 shadow-2xl shadow-red-600/40"
+              className="absolute inset-0 bg-red-600 rounded-[1.2rem] md:rounded-[1.5rem] -z-10 shadow-2xl shadow-red-600/40"
               transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
             />
           )}
           <item.icon 
-            size={32} 
-            strokeWidth={currentView === item.id ? 3 : 2} 
-            className={`transition-all duration-500 ${currentView === item.id ? 'text-white scale-110' : 'text-zinc-600 group-hover:text-zinc-300'}`} 
+            size={28} 
+            className={`md:w-8 md:h-8 transition-all duration-500 ${currentView === item.id ? 'text-white scale-110' : 'text-zinc-600 group-hover:text-zinc-300'}`} 
+            strokeWidth={currentView === item.id ? 3 : 2}
           />
         </button>
       ))}
       <button 
         onClick={onLogout}
-        className="p-4 text-zinc-600 hover:text-red-500 transition-all md:mt-auto group"
+        className="p-3 md:p-4 text-zinc-600 hover:text-red-500 transition-all md:mt-auto group"
       >
-        <LogOut size={32} strokeWidth={2} className="group-hover:rotate-12 transition-transform" />
+        <LogOut size={28} className="md:w-8 md:h-8 group-hover:rotate-12 transition-transform" strokeWidth={2} />
       </button>
     </nav>
   );
