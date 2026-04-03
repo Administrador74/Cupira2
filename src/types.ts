@@ -43,4 +43,5 @@ export interface Message {
   content: string;
   createdAt: any;
   read?: boolean;
+  deletedByAdmin?: boolean;
 }

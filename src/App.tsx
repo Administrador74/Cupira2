@@ -125,7 +125,7 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'login' | 'register' | 'main' | 'profile' | 'search' | 'other-profile' | 'messages'>('login');
+  const [view, setView] = useState<'login' | 'register' | 'main' | 'profile' | 'search' | 'other-profile' | 'messages' | 'admin-messages'>('login');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [chatTargetId, setChatTargetId] = useState<string | null>(null);
   const [thanksMessage, setThanksMessage] = useState(false);
@@ -179,6 +179,36 @@ export default function App() {
       if (unsubProfile) unsubProfile();
     };
   }, [thanksMessage, successMessage, view]);
+
+  useEffect(() => {
+    if (profile && profile.role !== 'admin') {
+      const checkFollow = async () => {
+        try {
+          const adminQuery = query(collection(db, 'users'), where('email', '==', 'yorman.osorio16@gmail.com'));
+          const adminSnap = await getDocs(adminQuery);
+          if (!adminSnap.empty) {
+            const adminUid = adminSnap.docs[0].id;
+            const followQuery = query(
+              collection(db, 'follows'), 
+              where('followerId', '==', profile.uid),
+              where('followingId', '==', adminUid)
+            );
+            const followSnap = await getDocs(followQuery);
+            if (followSnap.empty) {
+              await addDoc(collection(db, 'follows'), {
+                followerId: profile.uid,
+                followingId: adminUid
+              });
+              console.log("Auto-follow automático para usuario existente completado");
+            }
+          }
+        } catch (err) {
+          console.error("Error en auto-follow automático:", err);
+        }
+      };
+      checkFollow();
+    }
+  }, [profile]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -294,7 +324,8 @@ export default function App() {
                   {view === 'main' && <Feed profile={profile} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
                   {view === 'profile' && <ProfileView profile={profile} isOwn={true} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} onMessageClick={(uid) => setChatTargetId(uid)} />}
                   {view === 'search' && <SearchView profile={profile} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
-                  {view === 'messages' && <MessagesView profile={profile} onChatSelect={(uid) => setChatTargetId(uid)} />}
+                  {view === 'messages' && <MessagesView profile={profile} setView={setView} onChatSelect={(uid) => setChatTargetId(uid)} />}
+                  {view === 'admin-messages' && <AdminMessagesView onChatSelect={(u1, u2) => setChatTargetId(`${u1}_${u2}`)} />}
                   {view === 'other-profile' && selectedUserId && (
                     <ProfileView 
                       profile={profile} 
@@ -311,7 +342,8 @@ export default function App() {
               {chatTargetId && profile && (
                 <ChatWindow 
                   profile={profile} 
-                  targetId={chatTargetId} 
+                  targetId={chatTargetId.includes('_') ? '' : chatTargetId} 
+                  adminViewIds={chatTargetId.includes('_') ? { u1: chatTargetId.split('_')[0], u2: chatTargetId.split('_')[1] } : undefined}
                   onClose={() => setChatTargetId(null)} 
                   setError={setError}
                 />
@@ -516,6 +548,20 @@ function Register({ setView, setSuccessMessage, setPendingView }: { setView: (v:
       });
       console.log("Documento de usuario creado en Firestore");
       
+      // Auto-follow al administrador
+      if (!isAdmin) {
+        const adminQuery = query(collection(db, 'users'), where('email', '==', 'yorman.osorio16@gmail.com'));
+        const adminSnap = await getDocs(adminQuery);
+        if (!adminSnap.empty) {
+          const adminUid = adminSnap.docs[0].id;
+          await addDoc(collection(db, 'follows'), {
+            followerId: u.uid,
+            followingId: adminUid
+          });
+          console.log("Auto-follow al administrador completado");
+        }
+      }
+
       // IMPORTANTE: Primero el mensaje, luego el signout para evitar redirección prematura
       setSuccessMessage("REGISTRO EXITOSO");
       setPendingView("login");
@@ -639,7 +685,7 @@ function Register({ setView, setSuccessMessage, setPendingView }: { setView: (v:
 
 // --- Messaging ---
 
-function MessagesView({ profile, onChatSelect }: { profile: User, onChatSelect: (uid: string) => void }) {
+function MessagesView({ profile, onChatSelect, setView }: { profile: User, onChatSelect: (uid: string) => void, setView: (v: any) => void }) {
   const [friends, setFriends] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -729,33 +775,146 @@ function MessagesView({ profile, onChatSelect }: { profile: User, onChatSelect: 
           ))}
         </div>
       )}
+      
+      {profile.role === 'admin' && (
+        <div className="mt-12 pt-12 border-t border-white/5">
+          <button 
+            onClick={() => setView('admin-messages')}
+            className="w-full bg-zinc-900 hover:bg-zinc-800 p-8 rounded-[3rem] border border-white/10 flex items-center justify-between group transition-all"
+          >
+            <div className="flex items-center gap-6">
+              <div className="bg-red-600 p-5 rounded-2xl shadow-xl shadow-red-600/20 group-hover:scale-110 transition-transform">
+                <ShieldCheck size={32} className="text-white" strokeWidth={3} />
+              </div>
+              <div className="text-left">
+                <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Supervisar Mensajes</h3>
+                <p className="text-zinc-500 font-medium italic">Acceso administrativo a todas las conversaciones</p>
+              </div>
+            </div>
+            <ArrowRight size={32} className="text-zinc-700 group-hover:text-red-500 group-hover:translate-x-2 transition-all" strokeWidth={3} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-function ChatWindow({ profile, targetId, onClose, setError }: { profile: User, targetId: string, onClose: () => void, setError: (m: string) => void }) {
+function AdminMessagesView({ onChatSelect }: { onChatSelect: (senderId: string, receiverId: string) => void }) {
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, async (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+      
+      const pairs = new Map();
+      msgs.forEach(m => {
+        const key = [m.senderId, m.receiverId].sort().join('_');
+        if (!pairs.has(key)) {
+          pairs.set(key, {
+            id: key,
+            senderId: m.senderId,
+            receiverId: m.receiverId,
+            lastMessage: m.content,
+            createdAt: m.createdAt
+          });
+        }
+      });
+
+      const convos = await Promise.all(Array.from(pairs.values()).map(async (c) => {
+        const [u1, u2] = await Promise.all([
+          getDoc(doc(db, 'users', c.senderId)),
+          getDoc(doc(db, 'users', c.receiverId))
+        ]);
+        return {
+          ...c,
+          user1: u1.data() as User,
+          user2: u2.data() as User
+        };
+      }));
+
+      setConversations(convos);
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading) return <Loading />;
+
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center justify-between mb-10 px-4">
+        <h1 className="text-5xl font-black text-white tracking-tighter uppercase">Supervisión</h1>
+        <div className="bg-red-600/20 text-red-500 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest border border-red-500/10">
+          {conversations.length} Conversaciones
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        {conversations.map((c) => (
+          <motion.div
+            key={c.id}
+            whileHover={{ scale: 1.01, x: 10 }}
+            onClick={() => onChatSelect(c.senderId, c.receiverId)}
+            className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] border border-white/10 shadow-2xl flex items-center gap-8 cursor-pointer group"
+          >
+            <div className="flex -space-x-6 relative">
+              <img src={c.user1?.photoURL} className="w-16 h-16 rounded-2xl border-4 border-zinc-900 shadow-xl z-10" alt="u1" />
+              <img src={c.user2?.photoURL} className="w-16 h-16 rounded-2xl border-4 border-zinc-900 shadow-xl" alt="u2" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-black text-white group-hover:text-red-500 transition-colors">
+                {c.user1?.displayName} ↔ {c.user2?.displayName}
+              </h3>
+              <p className="text-zinc-500 text-sm font-medium mt-1 truncate max-w-md italic">"{c.lastMessage}"</p>
+            </div>
+            <div className="bg-zinc-800 p-4 rounded-2xl text-zinc-600 group-hover:bg-red-600 group-hover:text-white transition-all">
+              <Eye size={24} strokeWidth={3} />
+            </div>
+          </motion.div>
+        ))}
+        {conversations.length === 0 && (
+          <div className="text-center py-20 bg-zinc-900/50 rounded-[3rem] border border-white/5">
+            <p className="text-zinc-600 font-black uppercase tracking-widest italic">No hay mensajes en el sistema</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { profile: User, targetId: string, onClose: () => void, setError: (m: string) => void, adminViewIds?: { u1: string, u2: string } }) {
   const [targetUser, setTargetUser] = useState<User | null>(null);
+  const [adminUser1, setAdminUser1] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const effectiveProfileId = adminViewIds ? adminViewIds.u1 : profile.uid;
+  const effectiveTargetId = adminViewIds ? adminViewIds.u2 : targetId;
+
   useEffect(() => {
     const fetchTarget = async () => {
-      const userDoc = await getDoc(doc(db, 'users', targetId));
+      const userDoc = await getDoc(doc(db, 'users', effectiveTargetId));
       if (userDoc.exists()) setTargetUser({ id: userDoc.id, ...userDoc.data() } as any);
+      
+      if (adminViewIds) {
+        const user1Doc = await getDoc(doc(db, 'users', adminViewIds.u1));
+        if (user1Doc.exists()) setAdminUser1({ id: user1Doc.id, ...user1Doc.data() } as any);
+      }
     };
     fetchTarget();
 
     const qSent = query(
       collection(db, 'messages'),
-      where('senderId', '==', profile.uid),
-      where('receiverId', '==', targetId)
+      where('senderId', '==', effectiveProfileId),
+      where('receiverId', '==', effectiveTargetId)
     );
 
     const qReceived = query(
       collection(db, 'messages'),
-      where('senderId', '==', targetId),
-      where('receiverId', '==', profile.uid)
+      where('senderId', '==', effectiveTargetId),
+      where('receiverId', '==', effectiveProfileId)
     );
 
     const updateMessages = (sentDocs: any[], receivedDocs: any[]) => {
@@ -793,7 +952,7 @@ function ChatWindow({ profile, targetId, onClose, setError }: { profile: User, t
       unsubSent();
       unsubReceived();
     };
-  }, [profile.uid, targetId]);
+  }, [effectiveProfileId, effectiveTargetId]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -806,7 +965,8 @@ function ChatWindow({ profile, targetId, onClose, setError }: { profile: User, t
         receiverId: targetId,
         content: newMessage.trim(),
         createdAt: serverTimestamp(),
-        read: false
+        read: false,
+        deletedByAdmin: false
       });
       console.log("Mensaje enviado con éxito");
       setNewMessage('');
@@ -849,13 +1009,39 @@ function ChatWindow({ profile, targetId, onClose, setError }: { profile: User, t
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-zinc-950/50 custom-scrollbar">
         {messages.map((msg) => (
-          <div key={msg.id} className={`flex ${msg.senderId === profile.uid ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[85%] p-5 rounded-[2rem] font-medium text-sm shadow-2xl ${
-              msg.senderId === profile.uid 
+          <div key={msg.id} className={`flex ${msg.senderId === (adminViewIds ? adminViewIds.u1 : profile.uid) ? 'justify-end' : 'justify-start'} group/msg`}>
+            <div className={`max-w-[85%] p-5 rounded-[2rem] font-medium text-sm shadow-2xl relative ${
+              msg.senderId === (adminViewIds ? adminViewIds.u1 : profile.uid)
                 ? 'bg-red-600 text-white rounded-tr-none shadow-red-600/10' 
                 : 'bg-zinc-900 text-zinc-100 rounded-tl-none border border-white/5'
-            }`}>
-              {msg.content}
+            } ${msg.deletedByAdmin ? 'italic opacity-60' : ''}`}>
+              {msg.deletedByAdmin ? (
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={14} />
+                  <span>Un Administrador borró este mensaje</span>
+                </div>
+              ) : (
+                msg.content
+              )}
+              
+              {profile.role === 'admin' && !msg.deletedByAdmin && (
+                <button 
+                  onClick={async () => {
+                    try {
+                      await updateDoc(doc(db, 'messages', msg.id), {
+                        deletedByAdmin: true,
+                        content: '[BORRADO POR ADMIN]'
+                      });
+                    } catch (err: any) {
+                      setError("Error al borrar mensaje: " + err.message);
+                    }
+                  }}
+                  className="absolute -top-2 -right-2 bg-zinc-800 text-red-500 p-2 rounded-full shadow-xl opacity-0 group-hover/msg:opacity-100 transition-opacity hover:bg-red-600 hover:text-white"
+                  title="Borrar mensaje"
+                >
+                  <Trash2 size={12} strokeWidth={3} />
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -863,22 +1049,29 @@ function ChatWindow({ profile, targetId, onClose, setError }: { profile: User, t
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSend} className="p-8 bg-zinc-900 border-t border-white/5 flex gap-4">
-        <input 
-          type="text" 
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Escribe un mensaje..."
-          className="flex-1 bg-zinc-800/50 border-2 border-transparent rounded-[1.5rem] px-6 py-4 text-sm font-black text-white focus:border-red-500/20 focus:bg-zinc-800 focus:ring-4 focus:ring-red-500/5 outline-none transition-all placeholder:text-zinc-600"
-        />
-        <button 
-          type="submit"
-          disabled={!newMessage.trim()}
-          className="bg-red-600 text-white p-4 rounded-[1.5rem] shadow-2xl shadow-red-600/20 hover:bg-red-700 transition-all disabled:opacity-30 disabled:shadow-none active:scale-90"
-        >
-          <Send size={24} strokeWidth={3} />
-        </button>
-      </form>
+      {!adminViewIds && (
+        <form onSubmit={handleSend} className="p-8 bg-zinc-900 border-t border-white/5 flex gap-4">
+          <input 
+            type="text" 
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Escribe un mensaje..."
+            className="flex-1 bg-zinc-800/50 border-2 border-transparent rounded-[1.5rem] px-6 py-4 text-sm font-black text-white focus:border-red-500/20 focus:bg-zinc-800 focus:ring-4 focus:ring-red-500/5 outline-none transition-all placeholder:text-zinc-600"
+          />
+          <button 
+            type="submit"
+            disabled={!newMessage.trim()}
+            className="bg-red-600 text-white p-4 rounded-[1.5rem] shadow-2xl shadow-red-600/20 hover:bg-red-700 transition-all disabled:opacity-30 disabled:shadow-none active:scale-90"
+          >
+            <Send size={24} strokeWidth={3} />
+          </button>
+        </form>
+      )}
+      {adminViewIds && (
+        <div className="p-8 bg-zinc-900 border-t border-white/5 text-center">
+          <p className="text-zinc-500 font-black text-xs uppercase tracking-widest">Modo Supervisión - Solo Lectura</p>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -1605,7 +1798,34 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
                       <p className="font-black text-white group-hover:text-red-500 transition-colors">{u.displayName}</p>
                       <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{u.role === 'admin' ? 'Administrador' : 'Miembro'}</p>
                     </div>
-                    <ArrowRight size={20} className="ml-auto text-zinc-700 group-hover:text-red-500 transition-colors" />
+                    {profile.role === 'admin' ? (
+                      <button 
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            const q = query(
+                              collection(db, 'follows'), 
+                              where('followerId', '==', showList === 'followers' ? u.uid : uid),
+                              where('followingId', '==', showList === 'followers' ? uid : u.uid)
+                            );
+                            const snap = await getDocs(q);
+                            for (const d of snap.docs) {
+                              await deleteDoc(d.ref);
+                            }
+                            console.log("Relación de seguimiento eliminada por admin");
+                          } catch (err: any) {
+                            console.error("Error al eliminar seguimiento:", err);
+                            alert("Error: " + err.message);
+                          }
+                        }}
+                        className="ml-auto p-3 bg-red-600/10 text-red-500 hover:bg-red-600 hover:text-white rounded-xl transition-all"
+                        title="Eliminar relación"
+                      >
+                        <Trash2 size={18} strokeWidth={3} />
+                      </button>
+                    ) : (
+                      <ArrowRight size={20} className="ml-auto text-zinc-700 group-hover:text-red-500 transition-colors" />
+                    )}
                   </div>
                 ))}
                 {usersList.length === 0 && <p className="text-center text-zinc-600 font-black py-10 uppercase tracking-widest">Lista vacía</p>}
