@@ -693,8 +693,18 @@ function MessagesView({ profile, onChatSelect, setView }: { profile: User, onCha
   const [loading, setLoading] = useState(true);
   const userCache = useRef<Map<string, User>>(new Map());
 
+  const getUser = async (uid: string) => {
+    if (userCache.current.has(uid)) return userCache.current.get(uid);
+    const docSnap = await getDoc(doc(db, 'users', uid));
+    if (docSnap.exists()) {
+      const userData = { ...docSnap.data() } as User;
+      userCache.current.set(uid, userData);
+      return userData;
+    }
+    return null;
+  };
+
   useEffect(() => {
-    // 1. Cargar Conversaciones Activas
     const qConvs = query(
       collection(db, 'conversations'),
       where('participants', 'array-contains', profile.uid),
@@ -704,59 +714,62 @@ function MessagesView({ profile, onChatSelect, setView }: { profile: User, onCha
     const unsubConvs = onSnapshot(qConvs, async (snapshot) => {
       const convs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Conversation));
       
-      const getUser = async (uid: string) => {
-        if (userCache.current.has(uid)) return userCache.current.get(uid);
-        const docSnap = await getDoc(doc(db, 'users', uid));
-        if (docSnap.exists()) {
-          const userData = { ...docSnap.data() } as User;
-          userCache.current.set(uid, userData);
-          return userData;
-        }
-        return null;
-      };
-
       const enriched = await Promise.all(convs.map(async (c) => {
         const otherId = c.participants.find(p => p !== profile.uid);
         if (!otherId) return null;
         const otherUser = await getUser(otherId);
+        if (!otherUser) return null;
         return { ...c, otherUser };
       }));
 
-      setConversations(enriched.filter(c => c !== null));
-      
-      // 2. Cargar Amigos (Seguidores Mutuos) que NO tienen conversación aún
-      const qFollowing = query(collection(db, 'follows'), where('followerId', '==', profile.uid));
-      const qFollowers = query(collection(db, 'follows'), where('followingId', '==', profile.uid));
-
-      const unsubFollowing = onSnapshot(qFollowing, (snapFollowing) => {
-        const followingIds = snapFollowing.docs.map(d => d.data().followingId);
-        
-        onSnapshot(qFollowers, async (snapFollowers) => {
-          const followerIds = snapFollowers.docs.map(d => d.data().followerId);
-          const mutualIds = followingIds.filter(id => followerIds.includes(id));
-          
-          // Filtrar los que ya tienen conversación
-          const existingChatUserIds = convs.flatMap(c => c.participants).filter(id => id !== profile.uid);
-          const potentialNewChatIds = mutualIds.filter(id => !existingChatUserIds.includes(id));
-
-          if (potentialNewChatIds.length > 0) {
-            const profiles = await Promise.all(
-              potentialNewChatIds.map(async (id) => await getUser(id))
-            );
-            setFriends(profiles.filter((p): p is User => p !== null));
-          } else {
-            setFriends([]);
-          }
-          setLoading(false);
-        });
-      });
+      setConversations(enriched.filter((c): c is any => c !== null));
+      setLoading(false);
     }, (error) => {
-      console.error("Error en MessagesView:", error);
+      console.error("Error en MessagesView (convs):", error);
       setLoading(false);
     });
 
     return () => unsubConvs();
   }, [profile.uid]);
+
+  useEffect(() => {
+    // Cargar Amigos (Seguidores Mutuos) que NO tienen conversación aún
+    const qFollowing = query(collection(db, 'follows'), where('followerId', '==', profile.uid));
+    const qFollowers = query(collection(db, 'follows'), where('followingId', '==', profile.uid));
+
+    let followingIds: string[] = [];
+    let followerIds: string[] = [];
+
+    const updateFriends = async () => {
+      const mutualIds = followingIds.filter(id => followerIds.includes(id));
+      const existingChatUserIds = conversations.flatMap(c => c.participants).filter(id => id !== profile.uid);
+      const potentialNewChatIds = mutualIds.filter(id => !existingChatUserIds.includes(id));
+
+      if (potentialNewChatIds.length > 0) {
+        const profiles = await Promise.all(
+          potentialNewChatIds.map(async (id) => await getUser(id))
+        );
+        setFriends(profiles.filter((p): p is User => p !== null));
+      } else {
+        setFriends([]);
+      }
+    };
+
+    const unsubFollowing = onSnapshot(qFollowing, (snap) => {
+      followingIds = snap.docs.map(d => d.data().followingId);
+      updateFriends();
+    });
+
+    const unsubFollowers = onSnapshot(qFollowers, (snap) => {
+      followerIds = snap.docs.map(d => d.data().followerId);
+      updateFriends();
+    });
+
+    return () => {
+      unsubFollowing();
+      unsubFollowers();
+    };
+  }, [profile.uid, conversations]);
 
   if (loading) return <Loading />;
 
@@ -926,10 +939,11 @@ function AdminMessagesView({ onChatSelect }: { onChatSelect: (senderId: string, 
           getUser(c.participants[0]),
           getUser(c.participants[1])
         ]);
+        if (!u1 || !u2) return null;
         return { ...c, user1: u1, user2: u2 };
       }));
 
-      setConversations(enriched);
+      setConversations(enriched.filter((c): c is any => c !== null));
       setLoading(false);
     }, (error) => {
       console.error("Error en AdminMessagesView:", error);
