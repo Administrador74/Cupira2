@@ -1147,47 +1147,47 @@ function AdminMessagesView({ onChatSelect }: { onChatSelect: (senderId: string, 
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between mb-10 px-4">
+      <div className="flex items-center justify-between mb-6 px-4">
         <div className="flex flex-col">
-          <h1 className="text-5xl font-black text-white tracking-tighter uppercase">Supervisión</h1>
-          <p className="text-zinc-500 font-bold text-xs uppercase tracking-[0.3em] mt-2">Archivo Maestro de Chats</p>
+          <h1 className="text-4xl font-black text-white tracking-tighter uppercase">Supervisión</h1>
+          <p className="text-zinc-500 font-bold text-[10px] uppercase tracking-[0.3em] mt-1">Archivo Maestro de Chats</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {conversations.length === 0 && (
             <button 
               onClick={handleMigrate}
               disabled={migrating}
-              className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest border border-white/5 disabled:opacity-50"
+              className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest border border-white/5 disabled:opacity-50"
             >
-              {migrating ? 'Migrando...' : 'Sincronizar Historial'}
+              {migrating ? 'Migrando...' : 'Sincronizar'}
             </button>
           )}
-          <div className="bg-red-600/20 text-red-500 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest border border-red-500/10">
-            {conversations.length} Conversaciones
+          <div className="bg-red-600/20 text-red-500 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest border border-red-500/10">
+            {conversations.length} Chats
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 gap-4">
         {conversations.map((c) => (
           <motion.div
             key={c.id}
-            whileHover={{ scale: 1.01, x: 10 }}
+            whileHover={{ scale: 1.01, x: 5 }}
             onClick={() => onChatSelect(c.participants[0], c.participants[1])}
-            className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] border border-white/10 shadow-2xl flex items-center gap-8 cursor-pointer group"
+            className="bg-zinc-900/80 backdrop-blur-xl p-5 rounded-[2rem] border border-white/10 shadow-2xl flex items-center gap-5 cursor-pointer group"
           >
-            <div className="flex -space-x-6 relative">
-              <img src={c.user1?.photoURL} className="w-16 h-16 rounded-2xl border-4 border-zinc-900 shadow-xl z-10" alt="u1" />
-              <img src={c.user2?.photoURL} className="w-16 h-16 rounded-2xl border-4 border-zinc-900 shadow-xl" alt="u2" />
+            <div className="flex -space-x-4 relative">
+              <img src={c.user1?.photoURL} className="w-12 h-12 rounded-xl border-2 border-zinc-900 shadow-xl z-10" alt="u1" />
+              <img src={c.user2?.photoURL} className="w-12 h-12 rounded-xl border-2 border-zinc-900 shadow-xl" alt="u2" />
             </div>
             <div className="flex-1 overflow-hidden">
-              <h3 className="text-xl font-black text-white group-hover:text-red-500 transition-colors truncate">
+              <h3 className="text-sm font-black text-white group-hover:text-red-500 transition-colors truncate">
                 {c.user1?.displayName} ↔ {c.user2?.displayName}
               </h3>
-              <p className="text-zinc-500 text-sm font-medium mt-1 truncate max-w-md italic">"{c.lastMessage}"</p>
+              <p className="text-zinc-500 text-[11px] font-medium mt-0.5 truncate max-w-md italic">"{c.lastMessage}"</p>
             </div>
-            <div className="bg-zinc-800 p-4 rounded-2xl text-zinc-600 group-hover:bg-red-600 group-hover:text-white transition-all">
-              <Eye size={24} strokeWidth={3} />
+            <div className="bg-zinc-800 p-3 rounded-xl text-zinc-600 group-hover:bg-red-600 group-hover:text-white transition-all">
+              <Eye size={18} strokeWidth={3} />
             </div>
           </motion.div>
         ))}
@@ -1218,7 +1218,12 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
     if (!targetUser) return;
     setIsGeneratingGame(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      // Intentar obtener la API Key de process.env o import.meta.env
+      const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("API Key no configurada");
+      }
+      const ai = new GoogleGenAI({ apiKey });
       const gameType = Math.random() > 0.5 ? 'riddle' : 'number';
       
       let prompt = "";
@@ -1477,7 +1482,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
       initial={{ y: 100, opacity: 0, scale: 0.95 }}
       animate={{ y: 0, opacity: 1, scale: 1 }}
       exit={{ y: 100, opacity: 0, scale: 0.95 }}
-      className="fixed bottom-24 right-4 left-4 md:left-auto md:right-10 md:bottom-10 md:w-[450px] h-[650px] bg-zinc-950 rounded-[3.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] border border-white/10 flex flex-col z-[100] overflow-hidden"
+      className="fixed bottom-20 right-2 left-2 md:left-auto md:right-10 md:bottom-10 md:w-[400px] h-[70vh] md:h-[650px] bg-zinc-950 rounded-[2.5rem] md:rounded-[3.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] border border-white/10 flex flex-col z-[100] overflow-hidden"
     >
       {/* Header */}
       <div className={`p-8 ${isGameMode ? 'bg-gradient-to-r from-purple-600 to-blue-600' : 'bg-zinc-900'} border-b border-white/5 flex items-center justify-between transition-colors duration-500`}>
@@ -1545,7 +1550,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
       </AnimatePresence>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-zinc-950/50 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 md:space-y-6 bg-zinc-950/50 custom-scrollbar">
         {messages.map((msg) => {
           const isMe = msg.senderId === profile.uid;
           const isAdminMsg = msg.senderId !== effectiveProfileId && msg.senderId !== effectiveTargetId;
@@ -1698,14 +1703,14 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, show
   ];
 
   return (
-    <nav className="fixed bottom-4 left-4 right-4 md:left-4 md:top-4 md:bottom-4 md:w-24 bg-zinc-900/90 backdrop-blur-2xl border border-white/10 rounded-[3rem] flex md:flex-col items-center justify-around md:justify-start md:pt-12 md:space-y-10 p-2 md:p-4 z-50 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)]">
-      <div className="hidden md:flex flex-col items-center space-y-6 mb-4">
+    <nav className="fixed bottom-2 left-2 right-2 md:left-4 md:top-4 md:bottom-4 md:w-20 bg-zinc-900/95 backdrop-blur-2xl border border-white/10 rounded-[2rem] md:rounded-[3rem] flex md:flex-col items-center justify-around md:justify-start md:pt-10 md:space-y-8 p-1.5 md:p-3 z-50 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)]">
+      <div className="hidden md:flex flex-col items-center space-y-4 mb-2">
         <motion.div 
           whileHover={{ scale: 1.1, rotate: 5 }}
-          className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-red-600/40 cursor-pointer border-2 border-white/20"
+          className="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-red-600/40 cursor-pointer border-2 border-white/20"
           onClick={() => setView('main')}
         >
-          <Users className="text-white" size={32} strokeWidth={3} />
+          <Users className="text-white" size={24} strokeWidth={3} />
         </motion.div>
         
         {/* Botón de Notificaciones */}
@@ -1728,10 +1733,10 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, show
               alert("Tu navegador no soporta notificaciones.");
             }
           }}
-          className="w-12 h-12 bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white transition-colors border border-white/5"
+          className="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white transition-colors border border-white/5"
           title="Activar Notificaciones"
         >
-          <Bell size={24} />
+          <Bell size={20} />
         </motion.button>
 
         {/* Botón de Instalación */}
@@ -1739,37 +1744,37 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, show
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={onInstall}
-          className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all border border-white/5 ${showInstall ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all border border-white/5 ${showInstall ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
           title="Instalar Aplicación"
         >
-          <Download size={24} />
+          <Download size={20} />
         </motion.button>
       </div>
       {items.map((item) => (
         <button 
           key={item.id} 
           onClick={() => setView(item.id)}
-          className="relative p-3 md:p-4 group transition-all"
+          className="relative p-2 md:p-3 group transition-all"
         >
           {currentView === item.id && (
             <motion.div 
               layoutId="nav-active"
-              className="absolute inset-0 bg-red-600 rounded-[1.2rem] md:rounded-[1.5rem] -z-10 shadow-2xl shadow-red-600/40"
+              className="absolute inset-0 bg-red-600 rounded-[1rem] md:rounded-[1.5rem] -z-10 shadow-2xl shadow-red-600/40"
               transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
             />
           )}
           <item.icon 
-            size={28} 
-            className={`md:w-8 md:h-8 transition-all duration-500 ${currentView === item.id ? 'text-white scale-110' : 'text-zinc-600 group-hover:text-zinc-300'}`} 
+            size={22} 
+            className={`md:w-6 md:h-6 transition-all duration-500 ${currentView === item.id ? 'text-white scale-110' : 'text-zinc-600 group-hover:text-zinc-300'}`} 
             strokeWidth={currentView === item.id ? 3 : 2}
           />
         </button>
       ))}
       <button 
         onClick={onLogout}
-        className="p-3 md:p-4 text-zinc-600 hover:text-red-500 transition-all md:mt-auto group"
+        className="p-2 md:p-3 text-zinc-600 hover:text-red-500 transition-all md:mt-auto group"
       >
-        <LogOut size={28} className="md:w-8 md:h-8 group-hover:rotate-12 transition-transform" strokeWidth={2} />
+        <LogOut size={22} className="md:w-6 md:h-6 group-hover:rotate-12 transition-transform" strokeWidth={2} />
       </button>
     </nav>
   );
@@ -1850,15 +1855,15 @@ function Feed({ profile, onUserClick, updateCoins }: { profile: User, onUserClic
       <motion.div 
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/10"
+        className="bg-zinc-900/80 backdrop-blur-xl p-5 md:p-8 rounded-[2rem] md:rounded-[3rem] shadow-2xl border border-white/10"
       >
-        <form onSubmit={handlePost} className="space-y-6">
-          <div className="flex gap-5">
-            <img src={profile.photoURL} alt="me" className="w-14 h-14 rounded-2xl shadow-xl border-2 border-white/10" />
+        <form onSubmit={handlePost} className="space-y-4 md:space-y-6">
+          <div className="flex gap-3 md:gap-5">
+            <img src={profile.photoURL} alt="me" className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl shadow-xl border-2 border-white/10" />
             <textarea 
               placeholder="¿Qué está pasando en FOXBLACK?" 
-              className="w-full p-5 bg-zinc-800/50 rounded-[2rem] border border-white/5 focus:ring-2 focus:ring-red-500 outline-none resize-none font-medium text-white placeholder:text-zinc-500 transition-all"
-              rows={3} value={newPost} onChange={(e) => setNewPost(e.target.value)}
+              className="w-full p-4 md:p-5 bg-zinc-800/50 rounded-[1.5rem] md:rounded-[2rem] border border-white/5 focus:ring-2 focus:ring-red-500 outline-none resize-none font-medium text-white placeholder:text-zinc-500 transition-all text-sm md:text-base"
+              rows={2} value={newPost} onChange={(e) => setNewPost(e.target.value)}
             />
           </div>
           
@@ -1976,16 +1981,16 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
       initial={{ opacity: 0, scale: 0.95 }} 
       animate={{ opacity: 1, scale: 1 }} 
       exit={{ opacity: 0, scale: 0.95 }}
-      className="bg-zinc-900/80 backdrop-blur-xl rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden group"
+      className="bg-zinc-900/80 backdrop-blur-xl rounded-[2rem] md:rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden group"
     >
-      <div className="p-8">
-        <div className="flex justify-between items-start mb-6">
-          <div className="flex items-center gap-5 cursor-pointer group/author" onClick={() => onUserClick(post.authorId)}>
+      <div className="p-5 md:p-8">
+        <div className="flex justify-between items-start mb-4 md:mb-6">
+          <div className="flex items-center gap-3 md:gap-5 cursor-pointer group/author" onClick={() => onUserClick(post.authorId)}>
             <div className="relative">
               <img 
                 src={post.authorPhotoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.authorId}`} 
                 alt="avatar" 
-                className="w-14 h-14 rounded-full shadow-xl group-hover/author:scale-110 transition-all duration-500 border-4 border-white/10 object-cover" 
+                className="w-10 h-10 md:w-14 md:h-14 rounded-full shadow-xl group-hover/author:scale-110 transition-all duration-500 border-2 md:border-4 border-white/10 object-cover" 
                 loading="lazy"
               />
               {(post.authorRole === 'admin' || post.authorName === 'Administrador') && (
@@ -2392,7 +2397,12 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
     const list: User[] = [];
     for (const id of ids) {
       const d = await getDoc(doc(db, 'users', id));
-      if (d.exists()) list.push(d.data() as User);
+      if (d.exists()) {
+        list.push(d.data() as User);
+      } else {
+        // Limpieza opcional: si el usuario no existe, podríamos eliminar la relación de seguimiento
+        // Pero por ahora solo lo filtramos de la lista
+      }
     }
     setUsersList(list);
   };
@@ -2526,18 +2536,18 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
             </div>
           </div>
           
-          <div className="flex gap-10 mt-10 border-t border-white/5 pt-8">
+          <div className="flex gap-6 mt-6 border-t border-white/5 pt-6">
             <button onClick={() => setShowList('followers')} className="group transition-all">
-              <p className="text-3xl font-black text-white group-hover:text-red-500 transition-colors">{followers.length}</p>
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Seguidores</p>
+              <p className="text-2xl font-black text-white group-hover:text-red-500 transition-colors">{followers.length}</p>
+              <p className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Seguidores</p>
             </button>
             <button onClick={() => setShowList('following')} className="group transition-all">
-              <p className="text-3xl font-black text-white group-hover:text-red-500 transition-colors">{following.length}</p>
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Siguiendo</p>
+              <p className="text-2xl font-black text-white group-hover:text-red-500 transition-colors">{following.length}</p>
+              <p className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Siguiendo</p>
             </button>
             <div className="group transition-all">
-              <p className="text-3xl font-black text-white">{posts.length}</p>
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Publicaciones</p>
+              <p className="text-2xl font-black text-white">{posts.length}</p>
+              <p className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Posts</p>
             </div>
           </div>
         </div>
@@ -2659,17 +2669,17 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
                   <X size={24} strokeWidth={3} className="text-zinc-500 hover:text-white" />
                 </button>
               </div>
-              <div className="overflow-y-auto p-6 space-y-4 custom-scrollbar">
+              <div className="overflow-y-auto p-4 space-y-2 custom-scrollbar">
                 {usersList.map((u) => (
                   <div 
                     key={u.uid} 
-                    className="flex items-center gap-4 cursor-pointer hover:bg-zinc-800 p-4 rounded-2xl transition-all group border border-transparent hover:border-white/5"
+                    className="flex items-center gap-3 cursor-pointer hover:bg-zinc-800 p-3 rounded-xl transition-all group border border-transparent hover:border-white/5"
                     onClick={() => { onUserClick(u.uid); setShowList(null); }}
                   >
-                    <img src={u.photoURL} alt="avatar" className="w-14 h-14 rounded-2xl shadow-xl group-hover:scale-110 transition-transform border-2 border-white/10" />
+                    <img src={u.photoURL} alt="avatar" className="w-10 h-10 rounded-xl shadow-xl group-hover:scale-110 transition-transform border-2 border-white/10" />
                     <div>
-                      <p className="font-black text-white group-hover:text-red-500 transition-colors">{u.displayName}</p>
-                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{u.role === 'admin' ? 'Administrador' : 'Miembro'}</p>
+                      <p className="font-black text-sm text-white group-hover:text-red-500 transition-colors">{u.displayName}</p>
+                      <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">{u.role === 'admin' ? 'Administrador' : 'Miembro'}</p>
                     </div>
                     {profile.role === 'admin' ? (
                       <button 
