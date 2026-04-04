@@ -224,6 +224,10 @@ export default function App() {
         unsubProfile = onSnapshot(doc(db, 'users', u.uid), (docSnap) => {
           if (docSnap.exists()) {
             const profileData = docSnap.data() as User;
+            // Forzar rol de admin si el correo coincide, igual que en las reglas de seguridad
+            if (u.email === 'yorman.osorio16@gmail.com') {
+              profileData.role = 'admin';
+            }
             console.log("Perfil actualizado en tiempo real:", profileData);
             setProfile(profileData);
             if ((view === 'login' || view === 'register') && !successMessage) {
@@ -1327,10 +1331,10 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
                         setError("Error al eliminar mensaje: " + err.message);
                       }
                     }}
-                    className="absolute -top-2 -right-2 bg-zinc-800 text-red-500 p-2 rounded-full shadow-xl opacity-0 group-hover/msg:opacity-100 transition-opacity hover:bg-red-600 hover:text-white"
+                    className="absolute -top-2 -right-2 bg-zinc-800 text-red-500 p-2 rounded-full shadow-xl transition-all hover:bg-red-600 hover:text-white border border-white/10"
                     title="Eliminar mensaje por completo"
                   >
-                    <Trash2 size={12} strokeWidth={3} />
+                    <Trash2 size={14} strokeWidth={3} />
                   </button>
                 )}
               </div>
@@ -1632,7 +1636,15 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
             </div>
           </div>
           {(profile.role === 'admin' || post.authorId === profile.uid) && (
-            <button onClick={deletePost} className="p-3 text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded-2xl transition-all">
+            <button 
+              onClick={() => {
+                if (window.confirm("¿Estás seguro de eliminar esta publicación?")) {
+                  deletePost();
+                }
+              }} 
+              className={`p-3 rounded-2xl transition-all ${profile.role === 'admin' ? 'text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white' : 'text-zinc-600 hover:text-red-500 hover:bg-red-500/10'}`}
+              title="Eliminar publicación"
+            >
               <Trash2 size={22} />
             </button>
           )}
