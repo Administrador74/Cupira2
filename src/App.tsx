@@ -52,7 +52,8 @@ import {
   MessageSquare,
   ChevronLeft,
   Eye,
-  EyeOff
+  EyeOff,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -129,6 +130,28 @@ export default function App() {
   const [view, setView] = useState<'login' | 'register' | 'main' | 'profile' | 'search' | 'other-profile' | 'messages' | 'admin-messages'>('login');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [chatTargetId, setChatTargetId] = useState<string | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    } else {
+      alert("Para instalar la app, usa el menú de tu navegador (Añadir a pantalla de inicio).");
+    }
+  };
   const [thanksMessage, setThanksMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -391,7 +414,14 @@ export default function App() {
         
         {view !== 'login' && view !== 'register' && user && profile && (
           <div key="main-app" className="max-w-6xl mx-auto px-4 md:px-8 py-8 md:py-12 flex flex-col md:flex-row gap-8">
-            <Sidebar setView={setView} currentView={view} onLogout={handleLogout} isAdmin={profile.role === 'admin'} />
+            <Sidebar 
+              setView={setView} 
+              currentView={view} 
+              onLogout={handleLogout} 
+              isAdmin={profile.role === 'admin'} 
+              onInstall={handleInstallApp}
+              showInstall={!!deferredPrompt}
+            />
             
             <main className="flex-1 md:ml-24 min-h-[calc(100vh-8rem)]">
               <AnimatePresence mode="wait">
@@ -1461,7 +1491,14 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
 
 // --- Navigation ---
 
-const Sidebar = memo(({ setView, currentView, onLogout, isAdmin }: { setView: (v: any) => void, currentView: string, onLogout: () => void, isAdmin: boolean }) => {
+const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, showInstall }: { 
+  setView: (v: any) => void, 
+  currentView: string, 
+  onLogout: () => void, 
+  isAdmin: boolean,
+  onInstall: () => void,
+  showInstall: boolean
+}) => {
   const items = [
     { id: 'main', icon: Home, label: 'Inicio' },
     { id: 'search', icon: Search, label: 'Buscar' },
@@ -1501,6 +1538,17 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin }: { setView: (v
           title="Activar Notificaciones"
         >
           <PlusCircle size={24} />
+        </motion.button>
+
+        {/* Botón de Instalación */}
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={onInstall}
+          className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all border border-white/5 ${showInstall ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+          title="Instalar Aplicación"
+        >
+          <Download size={24} />
         </motion.button>
       </div>
       {items.map((item) => (
