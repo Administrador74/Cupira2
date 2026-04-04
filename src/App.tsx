@@ -1239,16 +1239,19 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: { responseMimeType: "application/json" }
+        contents: [{ parts: [{ text: prompt }] }],
+        config: { 
+          responseMimeType: "application/json"
+        }
       });
       
-      const gameData = JSON.parse(response.text || "{}");
+      const text = response.text || "{}";
+      const gameData = JSON.parse(text);
       setGameState({ type: 'riddle', data: { ...gameData, attempts: 0 } });
       setNewMessage(`🎮 ACERTIJO MORTAL: ${gameData.riddle} (Responde correctamente para ganar 200 FoxCoins. Si fallan 2 veces, pierden 50 FoxCoins)`);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error generating game:", err);
-      setError("No se pudo conectar con el Maestro de Juegos.");
+      setError("No se pudo conectar con el Maestro de Juegos: " + (err.message || "Error desconocido"));
     } finally {
       setIsGeneratingGame(false);
     }
@@ -2121,11 +2124,11 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
 
 function ShopView({ profile, updateCoins, setError }: { profile: User, updateCoins: (uid: string, amount: number) => Promise<void>, setError: (m: string) => void }) {
   const prizes = [
-    { id: 'badge_pro', name: 'Insignia Pro', description: 'Una insignia dorada en tu perfil.', cost: 500, icon: '🏆' },
-    { id: 'theme_dark', name: 'Tema Premium', description: 'Desbloquea colores exclusivos.', cost: 1000, icon: '🎨' },
-    { id: 'boost_post', name: 'Boost de Post', description: 'Tu próximo post llegará a todos.', cost: 200, icon: '🚀' },
-    { id: 'ai_avatar', name: 'Avatar IA', description: 'Genera un avatar único con IA.', cost: 1500, icon: '🤖' },
-    { id: 'vip_access', name: 'Acceso VIP', description: 'Funciones exclusivas por 30 días.', cost: 5000, icon: '💎' },
+    { id: 'badge_pro', name: 'Insignia Pro', description: 'Insignia dorada.', cost: 500, icon: '🏆' },
+    { id: 'theme_dark', name: 'Tema Premium', description: 'Colores exclusivos.', cost: 1000, icon: '🎨' },
+    { id: 'boost_post', name: 'Boost de Post', description: 'Llega a todos.', cost: 200, icon: '🚀' },
+    { id: 'ai_avatar', name: 'Avatar IA', description: 'Avatar único.', cost: 1500, icon: '🤖' },
+    { id: 'vip_access', name: 'Acceso VIP', description: '30 días VIP.', cost: 5000, icon: '💎' },
   ];
 
   const handleBuy = async (prize: any) => {
@@ -2152,50 +2155,50 @@ function ShopView({ profile, updateCoins, setError }: { profile: User, updateCoi
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-8 pb-32">
-      <div className="mb-12 text-center">
+    <div className="max-w-4xl mx-auto p-4 md:p-8 pb-32">
+      <div className="mb-8 text-center">
         <motion.div 
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="w-24 h-24 bg-yellow-500 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-yellow-500/20"
+          className="w-16 h-16 bg-yellow-500 rounded-[1.5rem] flex items-center justify-center mx-auto mb-4 shadow-2xl shadow-yellow-500/20"
         >
-          <ShoppingBag size={48} className="text-zinc-900" strokeWidth={2.5} />
+          <ShoppingBag size={32} className="text-zinc-900" strokeWidth={2.5} />
         </motion.div>
-        <h1 className="text-5xl font-black text-white tracking-tighter mb-4">Tienda FoxBlack</h1>
-        <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm">Canjea tus FoxCoins por premios exclusivos</p>
+        <h1 className="text-3xl font-black text-white tracking-tighter mb-2">Tienda FoxBlack</h1>
+        <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Canjea tus FoxCoins</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 gap-3 md:gap-6">
         {prizes.map((prize, idx) => (
           <motion.div
             key={prize.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
-            className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] border border-white/10 flex flex-col justify-between group hover:bg-zinc-800/80 transition-all"
+            transition={{ delay: idx * 0.05 }}
+            className="bg-zinc-900/80 backdrop-blur-xl p-4 md:p-6 rounded-[2rem] border border-white/10 flex flex-col justify-between group hover:bg-zinc-800/80 transition-all"
           >
             <div>
-              <div className="text-5xl mb-6 group-hover:scale-110 transition-transform duration-500">{prize.icon}</div>
-              <h3 className="text-2xl font-black text-white mb-2">{prize.name}</h3>
-              <p className="text-zinc-500 font-medium text-sm leading-relaxed mb-8">{prize.description}</p>
+              <div className="text-3xl md:text-4xl mb-3 group-hover:scale-110 transition-transform duration-500">{prize.icon}</div>
+              <h3 className="text-sm md:text-lg font-black text-white mb-1 truncate">{prize.name}</h3>
+              <p className="text-zinc-500 font-medium text-[10px] md:text-xs leading-tight mb-4 line-clamp-2">{prize.description}</p>
             </div>
-            <div className="flex items-center justify-between pt-6 border-t border-white/5">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
-                  <span className="text-[8px] font-black text-zinc-900">F</span>
+            <div className="flex flex-col gap-3 pt-3 border-t border-white/5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
+                  <span className="text-[6px] font-black text-zinc-900">F</span>
                 </div>
-                <span className="text-lg font-black text-yellow-500 tracking-tighter">{prize.cost}</span>
+                <span className="text-sm md:text-base font-black text-yellow-500 tracking-tighter">{prize.cost}</span>
               </div>
               <button 
                 onClick={() => handleBuy(prize)}
                 disabled={profile.inventory?.includes(prize.id)}
-                className={`px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-xl ${
+                className={`w-full py-2 rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-xl ${
                   profile.inventory?.includes(prize.id) 
                   ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' 
                   : 'bg-white text-zinc-900 hover:bg-red-500 hover:text-white'
                 }`}
               >
-                {profile.inventory?.includes(prize.id) ? 'Desbloqueado' : 'Canjear'}
+                {profile.inventory?.includes(prize.id) ? 'OK' : 'Canjear'}
               </button>
             </div>
           </motion.div>
@@ -2400,8 +2403,12 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
       if (d.exists()) {
         list.push(d.data() as User);
       } else {
-        // Limpieza opcional: si el usuario no existe, podríamos eliminar la relación de seguimiento
-        // Pero por ahora solo lo filtramos de la lista
+        // Limpiar relaciones huérfanas si el usuario no existe
+        const q1 = query(collection(db, 'follows'), where('followerId', '==', id));
+        const q2 = query(collection(db, 'follows'), where('followingId', '==', id));
+        const [s1, s2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+        s1.forEach(doc => deleteDoc(doc.ref));
+        s2.forEach(doc => deleteDoc(doc.ref));
       }
     }
     setUsersList(list);
@@ -2538,11 +2545,11 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
           
           <div className="flex gap-6 mt-6 border-t border-white/5 pt-6">
             <button onClick={() => setShowList('followers')} className="group transition-all">
-              <p className="text-2xl font-black text-white group-hover:text-red-500 transition-colors">{followers.length}</p>
+              <p className="text-2xl font-black text-white group-hover:text-red-500 transition-colors">{usersList.length && showList === 'followers' ? usersList.length : followers.length}</p>
               <p className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Seguidores</p>
             </button>
             <button onClick={() => setShowList('following')} className="group transition-all">
-              <p className="text-2xl font-black text-white group-hover:text-red-500 transition-colors">{following.length}</p>
+              <p className="text-2xl font-black text-white group-hover:text-red-500 transition-colors">{usersList.length && showList === 'following' ? usersList.length : following.length}</p>
               <p className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Siguiendo</p>
             </button>
             <div className="group transition-all">
@@ -2661,19 +2668,19 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
               initial={{ scale: 0.9, opacity: 0, y: 20 }} 
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-zinc-900 rounded-[3rem] w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col shadow-2xl border border-white/10"
+              className="bg-zinc-900 rounded-[2.5rem] w-full max-w-sm max-h-[70vh] overflow-hidden flex flex-col shadow-2xl border border-white/10"
             >
-              <div className="p-8 border-b border-white/5 flex justify-between items-center bg-zinc-800/50">
-                <h3 className="font-black text-2xl text-white tracking-tighter uppercase">{showList === 'followers' ? 'Seguidores' : 'Siguiendo'}</h3>
-                <button onClick={() => setShowList(null)} className="p-3 hover:bg-zinc-800 rounded-2xl transition-all">
-                  <X size={24} strokeWidth={3} className="text-zinc-500 hover:text-white" />
+              <div className="p-6 border-b border-white/5 flex justify-between items-center bg-zinc-800/50">
+                <h3 className="font-black text-xl text-white tracking-tighter uppercase">{showList === 'followers' ? 'Seguidores' : 'Siguiendo'}</h3>
+                <button onClick={() => setShowList(null)} className="p-2 hover:bg-zinc-800 rounded-xl transition-all">
+                  <X size={20} strokeWidth={3} className="text-zinc-500 hover:text-white" />
                 </button>
               </div>
-              <div className="overflow-y-auto p-4 space-y-2 custom-scrollbar">
+              <div className="overflow-y-auto p-2 space-y-1 custom-scrollbar">
                 {usersList.map((u) => (
                   <div 
                     key={u.uid} 
-                    className="flex items-center gap-3 cursor-pointer hover:bg-zinc-800 p-3 rounded-xl transition-all group border border-transparent hover:border-white/5"
+                    className="flex items-center gap-3 cursor-pointer hover:bg-zinc-800 p-2.5 rounded-xl transition-all group border border-transparent hover:border-white/5"
                     onClick={() => { onUserClick(u.uid); setShowList(null); }}
                   >
                     <img src={u.photoURL} alt="avatar" className="w-10 h-10 rounded-xl shadow-xl group-hover:scale-110 transition-transform border-2 border-white/10" />
@@ -2805,6 +2812,19 @@ function AdminUsersView({ onUserClick }: { onUserClick: (uid: string) => void })
             </div>
 
             <div className="flex flex-wrap gap-4">
+              <button 
+                onClick={async () => {
+                  try {
+                    await updateDoc(doc(db, 'users', u.uid), { coins: (u.coins || 0) + 1000 });
+                    alert(`Se han otorgado 1000 FoxCoins a ${u.displayName}`);
+                  } catch (err: any) {
+                    alert("Error: " + err.message);
+                  }
+                }}
+                className="flex-1 md:flex-none px-6 py-4 bg-yellow-500 text-zinc-900 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/20 active:scale-95"
+              >
+                +1000 Coins
+              </button>
               <button 
                 onClick={() => handleResetPassword(u.email)}
                 className="flex-1 md:flex-none px-8 py-4 bg-zinc-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-zinc-700 transition-all border border-white/5 active:scale-95"
