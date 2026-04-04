@@ -1232,12 +1232,8 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
     if (!targetUser) return;
     setIsGeneratingGame(true);
     try {
-      const apiKey = (import.meta as any).env?.GEMINI_API_KEY ||
-                     (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-                     process.env.GEMINI_API_KEY || 
-                     process.env.API_KEY || 
-                     (window as any).API_KEY;
-      if (!apiKey) {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || (window as any).API_KEY;
+      if (!apiKey || apiKey === "") {
         setError("No se pudo conectar con el Maestro de Juegos: API Key no encontrada. Por favor, asegúrate de que la variable GEMINI_API_KEY esté configurada.");
         setIsGeneratingGame(false);
         return;
@@ -1311,12 +1307,8 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
         }
       }
     } else if (gameState.type === 'riddle') {
-      const apiKey = (import.meta as any).env?.GEMINI_API_KEY ||
-                     (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-                     process.env.GEMINI_API_KEY || 
-                     process.env.API_KEY || 
-                     (window as any).API_KEY;
-      if (!apiKey) {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || (window as any).API_KEY;
+      if (!apiKey || apiKey === "") {
         setError("Error de API Key en el Maestro de Juegos.");
         return;
       }
