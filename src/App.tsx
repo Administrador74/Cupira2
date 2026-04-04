@@ -73,14 +73,14 @@ function SuccessModal({ message, onAccept }: { message: string, onAccept: () => 
         animate={{ scale: 1, opacity: 1 }}
         className="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center"
       >
-        <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-          <ShieldCheck size={48} />
+        <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <ShieldCheck size={32} />
         </div>
-        <h2 className="text-2xl font-black text-gray-900 mb-2">{message}</h2>
-        <p className="text-gray-500 mb-8 font-medium">¡Todo listo para conectar!</p>
+        <h2 className="text-xl font-black text-gray-900 mb-2">{message}</h2>
+        <p className="text-gray-500 mb-6 font-medium">¡Todo listo para conectar!</p>
         <button 
           onClick={onAccept}
-          className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all"
+          className="w-full bg-primary text-white py-3 rounded-xl font-black text-sm shadow-xl shadow-primary/20 hover:opacity-90 transition-all"
         >
           ACEPTAR
         </button>
@@ -90,9 +90,9 @@ function SuccessModal({ message, onAccept }: { message: string, onAccept: () => 
 }
 
 const Loading = () => (
-  <div className="flex items-center justify-center h-screen bg-gray-50">
-    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-  </div>
+    <div className="flex items-center justify-center h-screen bg-zinc-950">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+    </div>
 );
 
 // --- Error Handling ---
@@ -467,7 +467,7 @@ export default function App() {
                   <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-inner">
                     <span className="text-[10px] font-black text-zinc-900">F</span>
                   </div>
-                  <span className="text-sm font-black text-yellow-500 tracking-tighter">{profile.coins || 0} FoxCoins</span>
+                  <span className="text-sm font-black text-yellow-500 tracking-tighter">{profile.coins || 0} CupiraCoins</span>
                 </div>
               </div>
 
@@ -1232,11 +1232,11 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
     if (!targetUser) return;
     setIsGeneratingGame(true);
     try {
-      const apiKey = process.env.GEMINI_API_KEY || 
-                     process.env.API_KEY || 
+      const apiKey = (import.meta as any).env?.GEMINI_API_KEY ||
                      (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+                     process.env.GEMINI_API_KEY || 
+                     process.env.API_KEY || 
                      (window as any).API_KEY;
-                     
       if (!apiKey) {
         setError("No se pudo conectar con el Maestro de Juegos: API Key no encontrada. Por favor, asegúrate de que la variable GEMINI_API_KEY esté configurada.");
         setIsGeneratingGame(false);
@@ -1247,11 +1247,11 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
       
       let prompt = "";
       if (gameType === 'riddle') {
-        prompt = `Eres el Maestro de Juegos de FOXBLACK. Genera un acertijo corto y MUY DIFÍCIL para que ${profile.displayName} y ${targetUser.displayName} lo resuelvan. Responde con un JSON: {"riddle": "texto del acertijo", "answer": "respuesta corta"}`;
+        prompt = `Eres el Maestro de Juegos de CUPIRAAPP. Genera un acertijo corto y MUY DIFÍCIL para que ${profile.displayName} y ${targetUser.displayName} lo resuelvan. Responde con un JSON: {"riddle": "texto del acertijo", "answer": "respuesta corta"}`;
       } else {
         const targetNum = Math.floor(Math.random() * 20) + 1; // Más difícil: 1 al 20
         setGameState({ type: 'number', data: { target: targetNum, attempts: 0 } });
-        setNewMessage(`🎮 JUEGO: ¡Adivina el número del 1 al 20! Tienes 3 intentos. El primero que lo diga gana 100 FoxCoins. Si fallan 3 veces, pierden 20 FoxCoins cada uno.`);
+        setNewMessage(`🎮 JUEGO: ¡Adivina el número del 1 al 20! Tienes 3 intentos. El primero que lo diga gana 100 CupiraCoins. Si fallan 3 veces, pierden 20 CupiraCoins cada uno.`);
         setIsGeneratingGame(false);
         return;
       }
@@ -1267,7 +1267,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
       const text = response.text || "{}";
       const gameData = JSON.parse(text);
       setGameState({ type: 'riddle', data: { ...gameData, attempts: 0 } });
-      setNewMessage(`🎮 ACERTIJO MORTAL: ${gameData.riddle} (Responde correctamente para ganar 200 FoxCoins. Si fallan 2 veces, pierden 50 FoxCoins)`);
+      setNewMessage(`🎮 ACERTIJO MORTAL: ${gameData.riddle} (Responde correctamente para ganar 200 CupiraCoins. Si fallan 2 veces, pierden 50 CupiraCoins)`);
     } catch (err: any) {
       console.error("Error generating game:", err);
       setError("No se pudo conectar con el Maestro de Juegos: " + (err.message || "Error desconocido"));
@@ -1288,7 +1288,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
           senderId: 'system',
           receiverId: 'all',
           conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
-          content: `🎉 ¡VICTORIA! El número era ${gameState.data.target}. @${profile.displayName} ha ganado 100 FoxCoins.`,
+          content: `🎉 ¡VICTORIA! El número era ${gameState.data.target}. @${profile.displayName} ha ganado 100 CupiraCoins.`,
           createdAt: serverTimestamp(),
           read: true
         });
@@ -1302,7 +1302,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
             senderId: 'system',
             receiverId: 'all',
             conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
-            content: `💀 DERROTA: Nadie adivinó el número ${gameState.data.target}. Han perdido 20 FoxCoins cada uno.`,
+            content: `💀 DERROTA: Nadie adivinó el número ${gameState.data.target}. Han perdido 20 CupiraCoins cada uno.`,
             createdAt: serverTimestamp(),
             read: true
           });
@@ -1311,7 +1311,11 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
         }
       }
     } else if (gameState.type === 'riddle') {
-      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY || (window as any).API_KEY;
+      const apiKey = (import.meta as any).env?.GEMINI_API_KEY ||
+                     (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+                     process.env.GEMINI_API_KEY || 
+                     process.env.API_KEY || 
+                     (window as any).API_KEY;
       if (!apiKey) {
         setError("Error de API Key en el Maestro de Juegos.");
         return;
@@ -1329,7 +1333,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
           senderId: 'system',
           receiverId: 'all',
           conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
-          content: `🎉 ¡GENIO! La respuesta era "${gameState.data.answer}". Has ganado 200 FoxCoins.`,
+          content: `🎉 ¡GENIO! La respuesta era "${gameState.data.answer}". Has ganado 200 CupiraCoins.`,
           createdAt: serverTimestamp(),
           read: true
         });
@@ -1343,7 +1347,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
             senderId: 'system',
             receiverId: 'all',
             conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
-            content: `💀 DERROTA: Fallaron el acertijo. La respuesta era "${gameState.data.answer}". Pierden 50 FoxCoins.`,
+            content: `💀 DERROTA: Fallaron el acertijo. La respuesta era "${gameState.data.answer}". Pierden 50 CupiraCoins.`,
             createdAt: serverTimestamp(),
             read: true
           });
@@ -1548,7 +1552,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
           {!adminViewIds && (
             <button 
               onClick={() => setIsGameMode(!isGameMode)}
-              className={`p-3 rounded-2xl transition-all ${isGameMode ? 'bg-white text-purple-600 shadow-xl' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+              className={`p-3 rounded-2xl transition-all ${isGameMode ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
               title="Modo Juego IA"
             >
               <Gamepad2 size={20} strokeWidth={2.5} />
@@ -1601,7 +1605,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
               )}
               <div className={`max-w-[85%] p-5 rounded-[2rem] font-medium text-sm shadow-2xl relative ${
                 isMe
-                  ? 'bg-red-600 text-white rounded-tr-none shadow-red-600/10' 
+                  ? 'bg-primary text-white rounded-tr-none shadow-primary/10' 
                   : isAdminMsg
                     ? 'bg-blue-600 text-white rounded-tl-none border border-white/5'
                     : 'bg-zinc-900 text-zinc-100 rounded-tl-none border border-white/5'
@@ -1696,13 +1700,13 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder={adminViewIds ? "Intervenir en el chat..." : "Escribe un mensaje..."}
               className={`flex-1 bg-zinc-800/50 border-2 border-transparent rounded-[1.5rem] px-6 py-4 text-sm font-black text-white focus:bg-zinc-800 focus:ring-4 outline-none transition-all placeholder:text-zinc-600 ${
-                adminViewIds ? 'focus:border-blue-500/20 focus:ring-blue-500/5' : 'focus:border-red-500/20 focus:ring-red-500/5'
+                adminViewIds ? 'focus:border-blue-500/20 focus:ring-blue-500/5' : 'focus:border-primary/20 focus:ring-primary/5'
               }`}
             />
             <button 
               type="submit"
               disabled={!newMessage.trim()}
-              className={`${adminViewIds ? 'bg-blue-600 shadow-blue-600/20 hover:bg-blue-700' : 'bg-red-600 shadow-red-600/20 hover:bg-red-700'} text-white p-4 rounded-[1.5rem] shadow-2xl transition-all disabled:opacity-30 disabled:shadow-none active:scale-90`}
+              className={`${adminViewIds ? 'bg-blue-600 shadow-blue-600/20 hover:bg-blue-700' : 'bg-primary shadow-primary/20 hover:opacity-90'} text-white p-4 rounded-[1.5rem] shadow-2xl transition-all disabled:opacity-30 disabled:shadow-none active:scale-90`}
             >
               <Send size={24} strokeWidth={3} />
             </button>
@@ -2032,14 +2036,14 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
                 loading="lazy"
               />
               {(post.authorRole === 'admin' || post.authorName === 'Administrador') && (
-                <div className="absolute -bottom-1 -right-1 bg-red-600 text-white p-1 rounded-full border-2 border-zinc-900 shadow-lg">
+                <div className="absolute -bottom-1 -right-1 bg-primary text-white p-1 rounded-full border-2 border-zinc-900 shadow-lg">
                   <ShieldCheck size={12} strokeWidth={3} />
                 </div>
               )}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-black text-white group-hover/author:text-red-500 transition-colors text-lg tracking-tight leading-none">{post.authorName}</h3>
+                <h3 className="font-black text-white group-hover/author:text-primary transition-colors text-lg tracking-tight leading-none">{post.authorName}</h3>
                 {post.authorInventory?.includes('badge_unique') && <Sparkles size={16} className="text-yellow-500 animate-bounce" />}
               </div>
               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest opacity-60 mt-1">Publicado recientemente</p>
@@ -2077,7 +2081,7 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
           <motion.button 
             whileTap={{ scale: 0.8 }}
             onClick={handleLike} 
-            className={`flex items-center gap-3 px-6 py-3 rounded-2xl transition-all font-black uppercase tracking-widest text-xs ${isLiked ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'text-zinc-500 bg-zinc-800/50 hover:bg-zinc-800'}`}
+            className={`flex items-center gap-3 px-6 py-3 rounded-2xl transition-all font-black uppercase tracking-widest text-xs ${isLiked ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-zinc-500 bg-zinc-800/50 hover:bg-zinc-800'}`}
           >
             <Heart size={22} fill={isLiked ? 'currentColor' : 'none'} strokeWidth={3} />
             <span>{post.likes?.length || 0}</span>
@@ -2114,7 +2118,7 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
                     <div className="bg-zinc-800/50 p-4 rounded-[1.5rem] shadow-sm flex-1 border border-white/5 relative group/comment">
                       <div className="flex justify-between items-start">
                         <p 
-                          className="text-xs font-black text-red-500 cursor-pointer hover:underline mb-1 uppercase tracking-widest"
+                          className="text-xs font-black text-primary cursor-pointer hover:underline mb-1 uppercase tracking-widest"
                           onClick={() => onUserClick(c.authorId)}
                         >
                           {c.authorName}
@@ -2146,7 +2150,7 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
                   className="flex-1 px-6 py-4 bg-zinc-800/50 rounded-2xl border border-white/5 focus:ring-2 focus:ring-red-500 outline-none text-sm font-medium text-white placeholder:text-zinc-500 transition-all"
                   value={newComment} onChange={(e) => setNewComment(e.target.value)}
                 />
-                <button type="submit" className="bg-red-600 text-white p-4 rounded-2xl hover:bg-red-700 shadow-xl shadow-red-600/20 transition-all active:scale-90">
+                <button type="submit" className="bg-primary text-white p-4 rounded-2xl hover:opacity-90 shadow-xl shadow-primary/20 transition-all active:scale-90">
                   <Send size={20} strokeWidth={3} />
                 </button>
               </form>
@@ -2163,8 +2167,10 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
 function ShopView({ profile, updateCoins, setError, setSuccessMessage }: { profile: User, updateCoins: (uid: string, amount: number) => Promise<void>, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
   const prizes = [
     { id: 'badge_unique', name: 'Insignia Única', description: 'Una estrella dorada al lado de tu nombre.', cost: 300, icon: '⭐' },
-    { id: 'profile_frame', name: 'Marco de Perfil', description: 'Un borde brillante para tu foto de perfil.', cost: 500, icon: '🖼️' },
+    { id: 'profile_frame', name: 'Marco de Avatar', description: 'Un borde brillante para tu foto de perfil.', cost: 500, icon: '🖼️' },
+    { id: 'full_profile_frame', name: 'Marco de Perfil Completo', description: 'Un diseño exclusivo que rodea todo tu perfil.', cost: 1500, icon: '👑' },
     { id: 'theme_custom', name: 'Color de Interfaz', description: 'Cambia el color principal de tu aplicación.', cost: 1000, icon: '🎨' },
+    { id: 'premium_theme', name: 'Tema Premium', description: 'Sube tu propia imagen de fondo para tu perfil.', cost: 2000, icon: '✨' },
     { id: 'user_list_access', name: 'Lista de Usuarios', description: 'Acceso a la lista completa de exploradores.', cost: 800, icon: '📋' },
     { id: 'follow_request', name: 'Solicitud de Seguir', description: 'Sistema de seguimiento por aprobación.', cost: 400, icon: '🤝' },
   ];
@@ -2172,7 +2178,7 @@ function ShopView({ profile, updateCoins, setError, setSuccessMessage }: { profi
   const handleBuy = async (prize: any) => {
     const currentCoins = profile.coins || 0;
     if (currentCoins < prize.cost) {
-      setError(`No tienes suficientes FoxCoins. Te faltan ${prize.cost - currentCoins} 🦊`);
+      setError(`No tienes suficientes CupiraCoins. Te faltan ${prize.cost - currentCoins} 🦊`);
       return;
     }
 
@@ -2203,8 +2209,8 @@ function ShopView({ profile, updateCoins, setError, setSuccessMessage }: { profi
         >
           <ShoppingBag size={32} className="text-zinc-900" strokeWidth={2.5} />
         </motion.div>
-        <h1 className="text-3xl font-black text-white tracking-tighter mb-2">Tienda FoxBlack</h1>
-        <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Canjea tus FoxCoins</p>
+        <h1 className="text-3xl font-black text-white tracking-tighter mb-2">Tienda CupiraApp</h1>
+        <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Canjea tus CupiraCoins</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:gap-6">
@@ -2235,6 +2241,37 @@ function ShopView({ profile, updateCoins, setError, setSuccessMessage }: { profi
                       style={{ backgroundColor: color }}
                     />
                   ))}
+                </div>
+              )}
+              {prize.id === 'premium_theme' && profile.inventory?.includes('premium_theme') && (
+                <div className="mt-2">
+                  <input 
+                    type="file" 
+                    id="bg-upload" 
+                    className="hidden" 
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 500 * 1024) {
+                          setError("La imagen es demasiado grande. Máximo 500KB.");
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onloadend = async () => {
+                          await updateDoc(doc(db, 'users', profile.uid), { profileBg: reader.result });
+                          setSuccessMessage("Fondo de perfil actualizado.");
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                  <button 
+                    onClick={() => document.getElementById('bg-upload')?.click()}
+                    className="w-full py-2 bg-zinc-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/5 hover:bg-zinc-700 transition-all"
+                  >
+                    Subir Fondo
+                  </button>
                 </div>
               )}
               <div className="flex items-center gap-1.5">
@@ -2559,12 +2596,20 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
   if (!targetProfile) return <Loading />;
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className={`space-y-8 pb-10 rounded-[3.5rem] transition-all duration-500 ${targetProfile.inventory?.includes('full_profile_frame') ? 'p-4 bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 shadow-[0_0_50px_rgba(239,68,68,0.3)]' : ''}`}>
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-zinc-900/80 backdrop-blur-xl rounded-[3rem] overflow-hidden shadow-2xl border border-white/10"
+        className="bg-zinc-900/90 backdrop-blur-xl rounded-[3rem] overflow-hidden shadow-2xl border border-white/10 relative"
+        style={targetProfile.inventory?.includes('premium_theme') && targetProfile.profileBg ? {
+          backgroundImage: `url(${targetProfile.profileBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        } : {}}
       >
+        {targetProfile.inventory?.includes('premium_theme') && targetProfile.profileBg && (
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
+        )}
         <div className="h-64 bg-zinc-800 relative group">
           <img src={targetProfile.coverURL} alt="cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-60" />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80"></div>
@@ -2578,7 +2623,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
           )}
         </div>
         
-        <div className="px-10 pb-10 relative">
+        <div className="px-10 pb-10 relative z-10">
           <div className="absolute -top-24 left-10">
             <div className="relative group/avatar">
               <div className={`w-44 h-44 rounded-[3rem] border-8 border-zinc-900 bg-zinc-900 overflow-hidden shadow-2xl transition-transform group-hover/avatar:scale-105 duration-500 ${targetProfile.inventory?.includes('profile_frame') ? 'p-2 bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 animate-pulse' : ''}`}>
@@ -2586,7 +2631,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
               </div>
               {canEdit && (
                 <>
-                  <button onClick={() => photoInputRef.current?.click()} className="absolute bottom-2 right-2 bg-red-600 text-white p-4 rounded-2xl border-4 border-zinc-900 hover:bg-red-700 transition-all shadow-2xl active:scale-90">
+                  <button onClick={() => photoInputRef.current?.click()} className="absolute bottom-2 right-2 bg-primary text-white p-4 rounded-2xl border-4 border-zinc-900 hover:opacity-90 transition-all shadow-2xl active:scale-90">
                     <Camera size={22} strokeWidth={2.5} />
                   </button>
                   <input type="file" ref={photoInputRef} onChange={(e) => handleUpdateImage('photoURL', e)} className="hidden" accept="image/*" />
@@ -2601,7 +2646,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
                 <h1 className="text-2xl md:text-3xl font-black text-white tracking-tighter">{targetProfile.displayName}</h1>
                 {targetProfile.inventory?.includes('badge_unique') && <Sparkles size={28} className="text-yellow-500 animate-bounce" />}
                 {targetProfile.role === 'admin' && (
-                  <div className="bg-red-600 text-white p-1.5 rounded-xl shadow-xl shadow-red-600/20" title="Administrador">
+                  <div className="bg-primary text-white p-1.5 rounded-xl shadow-xl shadow-primary/20" title="Administrador">
                     <ShieldCheck size={22} strokeWidth={3} />
                   </div>
                 )}
@@ -2613,7 +2658,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
                     <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-4">Nombre Público</label>
                     <input 
                       type="text" placeholder="Tu nombre" 
-                      className="w-full px-6 py-4 bg-zinc-900/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none text-sm font-bold text-white placeholder:text-zinc-500 shadow-inner transition-all"
+                      className="w-full px-6 py-4 bg-zinc-900/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-primary outline-none text-sm font-bold text-white placeholder:text-zinc-500 shadow-inner transition-all"
                       value={editData.displayName} onChange={(e) => setEditData({ ...editData, displayName: e.target.value })}
                     />
                   </div>
@@ -2621,7 +2666,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
                     <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-4">Ubicación</label>
                     <input 
                       type="text" placeholder="¿Dónde vives?" 
-                      className="w-full px-6 py-4 bg-zinc-900/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none text-sm font-bold text-white placeholder:text-zinc-500 shadow-inner transition-all"
+                      className="w-full px-6 py-4 bg-zinc-900/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-primary outline-none text-sm font-bold text-white placeholder:text-zinc-500 shadow-inner transition-all"
                       value={editData.location} onChange={(e) => setEditData({ ...editData, location: e.target.value })}
                     />
                   </div>
@@ -2629,12 +2674,12 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
                     <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-4">Biografía / Estado</label>
                     <input 
                       type="text" placeholder="Estado actual (Bio)" 
-                      className="w-full px-6 py-4 bg-zinc-900/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none text-sm font-bold text-white placeholder:text-zinc-500 shadow-inner transition-all"
+                      className="w-full px-6 py-4 bg-zinc-900/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-primary outline-none text-sm font-bold text-white placeholder:text-zinc-500 shadow-inner transition-all"
                       value={editData.status} onChange={(e) => setEditData({ ...editData, status: e.target.value })}
                     />
                   </div>
                   <div className="flex gap-3 pt-2">
-                    <button onClick={handleSaveProfile} className="bg-red-600 text-white px-8 py-3 rounded-2xl text-sm font-black shadow-xl shadow-red-600/20 hover:bg-red-700 transition-all active:scale-95 uppercase tracking-widest">Guardar</button>
+                    <button onClick={handleSaveProfile} className="bg-primary text-white px-8 py-3 rounded-2xl text-sm font-black shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95 uppercase tracking-widest">Guardar</button>
                     <button onClick={() => setIsEditing(false)} className="bg-zinc-700 text-zinc-300 px-8 py-3 rounded-2xl text-sm font-black hover:bg-zinc-600 transition-all uppercase tracking-widest">Cancelar</button>
                   </div>
                 </motion.div>
@@ -2643,10 +2688,10 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
                   <p className="text-zinc-400 text-xl font-medium leading-relaxed italic">"{targetProfile.status || "Sin estado actual"}"</p>
                   <div className="flex flex-wrap gap-4">
                     <p className="text-zinc-500 text-xs font-black uppercase tracking-widest flex items-center gap-2 bg-zinc-800/50 px-4 py-2 rounded-2xl border border-white/5">
-                      <Home size={16} strokeWidth={2.5} className="text-red-500" /> {targetProfile.location || "Planeta Tierra"}
+                      <Home size={16} strokeWidth={2.5} className="text-primary" /> {targetProfile.location || "Planeta Tierra"}
                     </p>
                     <p className="text-zinc-500 text-xs font-black uppercase tracking-widest flex items-center gap-2 bg-zinc-800/50 px-4 py-2 rounded-2xl border border-white/5">
-                      <Users size={16} strokeWidth={2.5} className="text-red-500" /> {targetProfile.role === 'admin' ? 'Administrador' : 'Miembro'}
+                      <Users size={16} strokeWidth={2.5} className="text-primary" /> {targetProfile.role === 'admin' ? 'Administrador' : 'Miembro'}
                     </p>
                   </div>
                 </div>
@@ -2671,7 +2716,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
                       ? 'bg-zinc-800 text-white border border-white/5 hover:bg-zinc-700' 
                       : hasPendingRequest
                       ? 'bg-zinc-800 text-yellow-500 border border-yellow-500/20'
-                      : 'bg-red-600 text-white hover:bg-red-700 shadow-red-600/20'
+                      : 'bg-primary text-white hover:opacity-90 shadow-primary/20'
                     }`}
                   >
                     {isFollowing ? 'Siguiendo' : hasPendingRequest ? 'Pendiente' : targetProfile?.inventory?.includes('follow_request') ? 'Solicitar' : 'Seguir'}
@@ -2690,7 +2735,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
           {isOwn && pendingRequests.length > 0 && (
             <div className="mt-12 bg-zinc-900/50 p-8 rounded-[2.5rem] border border-white/5">
               <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-                <Users size={16} className="text-red-500" /> Solicitudes de Seguimiento
+                <Users size={16} className="text-primary" /> Solicitudes de Seguimiento
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {pendingRequests.map(req => (
@@ -2824,7 +2869,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
         <div className="flex items-center justify-between px-4">
           <h2 className="text-3xl font-black text-white tracking-tighter uppercase">Publicaciones</h2>
           <div className="h-1 flex-1 mx-8 bg-zinc-900 rounded-full overflow-hidden">
-            <div className="h-full w-24 bg-red-600 rounded-full"></div>
+            <div className="h-full w-24 bg-primary rounded-full"></div>
           </div>
         </div>
         
@@ -2934,7 +2979,7 @@ function UsersListView({ onUserClick }: { onUserClick: (uid: string) => void }) 
     <div className="max-w-4xl mx-auto p-4 md:p-8 pb-32">
       <div className="mb-8">
         <h1 className="text-4xl font-black text-white tracking-tighter uppercase">Exploradores</h1>
-        <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px] mt-2">Comunidad FoxBlack</p>
+        <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px] mt-2">Comunidad CupiraApp</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {users.map(u => (
@@ -3005,7 +3050,7 @@ function AdminUsersView({ onUserClick, setError, setSuccessMessage }: { onUserCl
           <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs mt-2">Panel de Administración / Usuarios</p>
         </div>
         <div className="bg-zinc-900/80 backdrop-blur-xl px-8 py-4 rounded-3xl border border-white/10 flex items-center gap-4">
-          <Users className="text-red-500" size={24} strokeWidth={3} />
+          <Users className="text-primary" size={24} strokeWidth={3} />
           <span className="text-xl font-black text-white">{users.length}</span>
           <span className="text-zinc-500 font-black text-[10px] uppercase tracking-widest">Total</span>
         </div>
@@ -3013,11 +3058,11 @@ function AdminUsersView({ onUserClick, setError, setSuccessMessage }: { onUserCl
 
       <div className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/10">
         <div className="relative group">
-          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-red-500 transition-colors" size={28} strokeWidth={3} />
+          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-primary transition-colors" size={28} strokeWidth={3} />
           <input 
             type="text" 
             placeholder="Busca por nombre o correo electrónico..." 
-            className="w-full pl-16 pr-8 py-6 bg-zinc-800/50 rounded-[2rem] border-2 border-transparent focus:border-red-500/20 focus:bg-zinc-800 focus:ring-4 focus:ring-red-500/5 outline-none transition-all text-xl font-black text-white placeholder:text-zinc-600 shadow-inner"
+            className="w-full pl-16 pr-8 py-6 bg-zinc-800/50 rounded-[2rem] border-2 border-transparent focus:border-primary/20 focus:bg-zinc-800 focus:ring-4 focus:ring-primary/5 outline-none transition-all text-xl font-black text-white placeholder:text-zinc-600 shadow-inner"
             value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
@@ -3034,10 +3079,10 @@ function AdminUsersView({ onUserClick, setError, setSuccessMessage }: { onUserCl
             <div className="flex items-center gap-6 cursor-pointer" onClick={() => onUserClick(u.uid)}>
               <img src={u.photoURL} alt="avatar" className="w-20 h-20 rounded-[2rem] shadow-2xl group-hover:scale-110 transition-transform duration-500 border-2 border-white/10" />
               <div>
-                <h3 className="text-2xl font-black text-white group-hover:text-red-500 transition-colors tracking-tight">{u.displayName}</h3>
+                <h3 className="text-2xl font-black text-white group-hover:text-primary transition-colors tracking-tight">{u.displayName}</h3>
                 <p className="text-sm font-bold text-zinc-400 mt-1">{u.email}</p>
                 <div className="flex gap-3 mt-3">
-                  <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${u.role === 'admin' ? 'bg-red-600/20 text-red-500' : 'bg-blue-600/20 text-blue-500'}`}>
+                  <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${u.role === 'admin' ? 'bg-primary/20 text-primary' : 'bg-blue-600/20 text-blue-500'}`}>
                     {u.role === 'admin' ? 'Administrador' : 'Miembro'}
                   </span>
                   <span className="px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-zinc-800 text-zinc-500">
@@ -3062,7 +3107,7 @@ function AdminUsersView({ onUserClick, setError, setSuccessMessage }: { onUserCl
                     if (isNaN(amount)) return;
                     try {
                       await updateDoc(doc(db, 'users', u.uid), { coins: (u.coins || 0) + amount });
-                      setSuccessMessage(`Se han otorgado ${amount} FoxCoins a ${u.displayName}`);
+                      setSuccessMessage(`Se han otorgado ${amount} CupiraCoins a ${u.displayName}`);
                       setCustomCoins({ ...customCoins, [u.uid]: '' });
                     } catch (err: any) {
                       setError("Error: " + err.message);
@@ -3095,7 +3140,7 @@ function AdminUsersView({ onUserClick, setError, setSuccessMessage }: { onUserCl
               </button>
               <button 
                 onClick={() => onUserClick(u.uid)}
-                className="flex-1 md:flex-none px-8 py-4 bg-red-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-700 transition-all shadow-xl shadow-red-600/20 active:scale-95"
+                className="flex-1 md:flex-none px-8 py-4 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:opacity-90 transition-all shadow-xl shadow-primary/20 active:scale-95"
               >
                 Ver Perfil
               </button>
@@ -3143,11 +3188,11 @@ function SearchView({ profile, onUserClick }: { profile: User, onUserClick: (uid
         className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/10"
       >
         <div className="relative group">
-          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-red-500 transition-colors" size={28} strokeWidth={3} />
+          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-primary transition-colors" size={28} strokeWidth={3} />
           <input 
             type="text" 
             placeholder="Busca amigos, vecinos o familia..." 
-            className="w-full pl-16 pr-8 py-6 bg-zinc-800/50 rounded-[2rem] border-2 border-transparent focus:border-red-500/20 focus:bg-zinc-800 focus:ring-4 focus:ring-red-500/5 outline-none transition-all text-xl font-black text-white placeholder:text-zinc-600 shadow-inner"
+            className="w-full pl-16 pr-8 py-6 bg-zinc-800/50 rounded-[2rem] border-2 border-transparent focus:border-primary/20 focus:bg-zinc-800 focus:ring-4 focus:ring-primary/5 outline-none transition-all text-xl font-black text-white placeholder:text-zinc-600 shadow-inner"
             value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
@@ -3175,13 +3220,13 @@ function SearchView({ profile, onUserClick }: { profile: User, onUserClick: (uid
                   )}
                 </div>
                 <div>
-                  <h3 className="text-xl font-black text-white group-hover:text-red-500 transition-colors tracking-tight">{u.displayName}</h3>
+                <h3 className="text-xl font-black text-white group-hover:text-primary transition-colors tracking-tight">{u.displayName}</h3>
                   <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">{u.role === 'admin' ? 'Administrador' : 'Miembro'}</p>
                 </div>
               </div>
               <button 
                 onClick={() => onUserClick(u.uid)}
-                className="bg-zinc-800 text-white p-5 rounded-[1.5rem] hover:bg-red-600 transition-all shadow-xl border border-white/5 group-hover:shadow-red-600/20 active:scale-90"
+                className="bg-zinc-800 text-white p-5 rounded-[1.5rem] hover:bg-primary transition-all shadow-xl border border-white/5 group-hover:shadow-primary/20 active:scale-90"
               >
                 <ArrowRight size={24} strokeWidth={3} />
               </button>

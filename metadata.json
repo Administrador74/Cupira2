@@ -1,5 +1,5 @@
 {
-  "name": "Cupira Conectada V2",
-  "description": "Una red social comunitaria para conectar a los habitantes de Cupira, con perfiles personalizables, fotos y comentarios.",
+  "name": "CupiraApp",
+  "description": "La red social definitiva de Cupira. Conecta, comparte y gana CupiraCoins.",
   "requestFramePermissions": ["notifications"]
 }
