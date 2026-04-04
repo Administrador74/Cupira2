@@ -1246,14 +1246,30 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
         if (gameType === 'number') {
           const targetNum = Math.floor(Math.random() * 20) + 1;
           setGameState({ type: 'number', data: { target: targetNum, attempts: 0 } });
-          setNewMessage(`🎮 JUEGO: ¡Adivina el número del 1 al 20! Tienes 3 intentos. El primero que lo diga gana 100 CupiraCoins. Si fallan 3 veces, pierden 20 CupiraCoins cada uno.`);
+          const challenge = `🎮 JUEGO: ¡Adivina el número del 1 al 20! Tienes 3 intentos. El primero que lo diga gana 100 CupiraCoins. Si fallan 3 veces, pierden 20 CupiraCoins cada uno.`;
+          await addDoc(collection(db, 'messages'), {
+            senderId: 'system',
+            receiverId: 'all',
+            conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
+            content: challenge,
+            createdAt: serverTimestamp(),
+            read: true
+          });
         } else if (gameType === 'math') {
           const a = Math.floor(Math.random() * 50) + 1;
           const b = Math.floor(Math.random() * 50) + 1;
           const op = Math.random() > 0.5 ? '+' : '-';
           const result = op === '+' ? a + b : a - b;
           setGameState({ type: 'math', data: { answer: result, attempts: 0 } });
-          setNewMessage(`🎮 RETO MATEMÁTICO: ¿Cuánto es ${a} ${op} ${b}? El primero en responder gana 150 CupiraCoins. Tienes 2 intentos.`);
+          const challenge = `🎮 RETO MATEMÁTICO: ¿Cuánto es ${a} ${op} ${b}? El primero en responder gana 150 CupiraCoins. Tienes 2 intentos.`;
+          await addDoc(collection(db, 'messages'), {
+            senderId: 'system',
+            receiverId: 'all',
+            conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
+            content: challenge,
+            createdAt: serverTimestamp(),
+            read: true
+          });
         }
         setIsGeneratingGame(false);
         return;
@@ -1273,13 +1289,29 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
       const text = response.text || "{}";
       const gameData = JSON.parse(text);
       setGameState({ type: 'riddle', data: { ...gameData, attempts: 0 } });
-      setNewMessage(`🎮 ACERTIJO MORTAL: ${gameData.riddle} (Responde correctamente para ganar 200 CupiraCoins. Si fallan 2 veces, pierden 50 CupiraCoins)`);
+      const challenge = `🎮 ACERTIJO MORTAL: ${gameData.riddle} (Responde correctamente para ganar 200 CupiraCoins. Si fallan 2 veces, pierden 50 CupiraCoins)`;
+      await addDoc(collection(db, 'messages'), {
+        senderId: 'system',
+        receiverId: 'all',
+        conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
+        content: challenge,
+        createdAt: serverTimestamp(),
+        read: true
+      });
     } catch (err: any) {
       console.error("Error generating game:", err);
       // If AI fails, fallback to a local game instead of error
       const targetNum = Math.floor(Math.random() * 10) + 1;
       setGameState({ type: 'number', data: { target: targetNum, attempts: 0 } });
-      setNewMessage(`🎮 JUEGO (Local): ¡Adivina el número del 1 al 10! Gana 50 CupiraCoins.`);
+      const challenge = `🎮 JUEGO (Local): ¡Adivina el número del 1 al 10! Gana 50 CupiraCoins.`;
+      await addDoc(collection(db, 'messages'), {
+        senderId: 'system',
+        receiverId: 'all',
+        conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
+        content: challenge,
+        createdAt: serverTimestamp(),
+        read: true
+      });
     } finally {
       setIsGeneratingGame(false);
     }
@@ -1605,19 +1637,43 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="bg-purple-600/20 border-b border-purple-500/30 p-4 flex items-center justify-between backdrop-blur-md"
+            className="bg-purple-600/20 border-b border-purple-500/30 p-5 flex flex-col gap-4 backdrop-blur-md"
           >
-            <div className="flex items-center gap-3">
-              <Sparkles className="text-purple-400 animate-pulse" size={18} />
-              <p className="text-[10px] font-black text-purple-200 uppercase tracking-widest">Maestro de Juegos IA</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Sparkles className="text-purple-400 animate-pulse" size={18} />
+                <p className="text-[10px] font-black text-purple-200 uppercase tracking-widest">Maestro de Juegos IA</p>
+              </div>
+              <button 
+                onClick={generateGamePrompt}
+                disabled={isGeneratingGame}
+                className="bg-purple-500 hover:bg-purple-400 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50 shadow-lg shadow-purple-500/20"
+              >
+                {isGeneratingGame ? 'Generando...' : 'Nuevo Reto'}
+              </button>
             </div>
-            <button 
-              onClick={generateGamePrompt}
-              disabled={isGeneratingGame}
-              className="bg-purple-500 hover:bg-purple-400 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
-            >
-              {isGeneratingGame ? 'Generando...' : 'Nuevo Reto'}
-            </button>
+            
+            {gameState && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-purple-900/40 p-4 rounded-2xl border border-purple-500/20"
+              >
+                <p className="text-xs font-bold text-purple-100 leading-relaxed">
+                  {gameState.type === 'riddle' ? `🧩 ACERTIJO: ${gameState.data.riddle}` : 
+                   gameState.type === 'number' ? `🔢 ADIVINA: El número está entre 1 y ${gameState.data.target > 10 ? '20' : '10'}.` :
+                   `🧮 MATEMÁTICAS: Resuelve el reto enviado al chat.`}
+                </p>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-[9px] font-black text-purple-400 uppercase tracking-widest">
+                    Intentos: {gameState.data.attempts}
+                  </span>
+                  <span className="text-[9px] font-black text-yellow-500 uppercase tracking-widest">
+                    {gameState.type === 'riddle' ? '200 Coins' : gameState.type === 'number' ? '100 Coins' : '150 Coins'}
+                  </span>
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -1732,9 +1788,9 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
               type="text" 
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={adminViewIds ? "Intervenir en el chat..." : "Escribe un mensaje..."}
+              placeholder={gameState ? "Escribe tu respuesta aquí..." : (adminViewIds ? "Intervenir en el chat..." : "Escribe un mensaje...")}
               className={`flex-1 bg-zinc-800/50 border-2 border-transparent rounded-[1.5rem] px-6 py-4 text-sm font-black text-white focus:bg-zinc-800 focus:ring-4 outline-none transition-all placeholder:text-zinc-600 ${
-                adminViewIds ? 'focus:border-blue-500/20 focus:ring-blue-500/5' : 'focus:border-primary/20 focus:ring-primary/5'
+                gameState ? 'border-purple-500/30 focus:border-purple-500/50 focus:ring-purple-500/5' : (adminViewIds ? 'focus:border-blue-500/20 focus:ring-blue-500/5' : 'focus:border-primary/20 focus:ring-primary/5')
               }`}
             />
             <button 
