@@ -469,12 +469,12 @@ export default function App() {
                   transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
                 >
                   {view === 'main' && <Feed profile={profile} updateCoins={updateCoins} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
-                  {view === 'profile' && <ProfileView profile={profile} isOwn={true} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} onMessageClick={(uid) => setChatTargetId(uid)} />}
+                  {view === 'profile' && <ProfileView profile={profile} isOwn={true} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} onMessageClick={(uid) => setChatTargetId(uid)} setError={setError} setSuccessMessage={setSuccessMessage} />}
                   {view === 'search' && <SearchView profile={profile} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
                   {view === 'messages' && <MessagesView profile={profile} setView={setView} onChatSelect={(uid) => setChatTargetId(uid)} />}
                   {view === 'admin-messages' && <AdminMessagesView onChatSelect={(u1, u2) => setChatTargetId(`${u1}_${u2}`)} />}
-                  {view === 'admin-users' && <AdminUsersView onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
-                  {view === 'shop' && <ShopView profile={profile} updateCoins={updateCoins} setError={setError} />}
+                  {view === 'admin-users' && <AdminUsersView onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} setError={setError} setSuccessMessage={setSuccessMessage} />}
+                  {view === 'shop' && <ShopView profile={profile} updateCoins={updateCoins} setError={setError} setSuccessMessage={setSuccessMessage} />}
                   {view === 'other-profile' && selectedUserId && (
                     <ProfileView 
                       profile={profile} 
@@ -482,6 +482,8 @@ export default function App() {
                       targetUserId={selectedUserId} 
                       onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }}
                       onMessageClick={(uid) => setChatTargetId(uid)}
+                      setError={setError}
+                      setSuccessMessage={setSuccessMessage}
                     />
                   )}
                 </motion.div>
@@ -1218,10 +1220,14 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
     if (!targetUser) return;
     setIsGeneratingGame(true);
     try {
-      // Intentar obtener la API Key de process.env o import.meta.env
-      const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+      // Intentar obtener la API Key de varias fuentes posibles en este entorno
+      const apiKey = process.env.GEMINI_API_KEY || 
+                     process.env.API_KEY || 
+                     (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+                     (window as any).API_KEY;
+                     
       if (!apiKey) {
-        throw new Error("API Key no configurada");
+        throw new Error("API Key no encontrada. Por favor, asegúrate de que la variable GEMINI_API_KEY esté configurada.");
       }
       const ai = new GoogleGenAI({ apiKey });
       const gameType = Math.random() > 0.5 ? 'riddle' : 'number';
@@ -1292,10 +1298,12 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
         }
       }
     } else if (gameState.type === 'riddle') {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+      if (!apiKey) return;
+      const ai = new GoogleGenAI({ apiKey });
       const checkResponse = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `El acertijo era: "${gameState.data.riddle}". La respuesta correcta es: "${gameState.data.answer}". El usuario dijo: "${text}". ¿Es correcto? Responde solo SI o NO.`,
+        contents: [{ parts: [{ text: `El acertijo era: "${gameState.data.riddle}". La respuesta correcta es: "${gameState.data.answer}". El usuario dijo: "${text}". ¿Es correcto? Responde solo SI o NO.` }] }],
       });
 
       if (checkResponse.text?.toUpperCase().includes('SI')) {
@@ -1329,6 +1337,14 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
       }
     }
   };
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      setTimeout(() => {
+        scrollRef.current?.scrollIntoView({ behavior: messages.length < 10 ? 'auto' : 'smooth' });
+      }, 300);
+    }
+  }, [messages]);
 
   const effectiveProfileId = adminViewIds ? adminViewIds.u1 : profile.uid;
   const effectiveTargetId = adminViewIds ? adminViewIds.u2 : targetId;
@@ -1387,7 +1403,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
         });
       
       setMessages(sorted);
-      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 150);
+      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: sorted.length < 10 ? 'auto' : 'smooth' }), 300);
     };
 
     let d1: any[] = [], d2: any[] = [], d3: any[] = [];
@@ -2122,7 +2138,7 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
 
 // --- Shop View ---
 
-function ShopView({ profile, updateCoins, setError }: { profile: User, updateCoins: (uid: string, amount: number) => Promise<void>, setError: (m: string) => void }) {
+function ShopView({ profile, updateCoins, setError, setSuccessMessage }: { profile: User, updateCoins: (uid: string, amount: number) => Promise<void>, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
   const prizes = [
     { id: 'badge_pro', name: 'Insignia Pro', description: 'Insignia dorada.', cost: 500, icon: '🏆' },
     { id: 'theme_dark', name: 'Tema Premium', description: 'Colores exclusivos.', cost: 1000, icon: '🎨' },
@@ -2148,8 +2164,9 @@ function ShopView({ profile, updateCoins, setError }: { profile: User, updateCoi
       await updateDoc(doc(db, 'users', profile.uid), {
         inventory: arrayUnion(prize.id)
       });
-      alert(`¡Felicidades! Has desbloqueado: ${prize.name}`);
+      setSuccessMessage(`¡Felicidades! Has desbloqueado: ${prize.name}`);
     } catch (err: any) {
+      console.error("Error buying prize:", err);
       setError("Error al procesar la compra: " + err.message);
     }
   };
@@ -2264,11 +2281,13 @@ function ImageModal({ src, onClose, onDelete, onEdit, canEdit }: { src: string, 
   );
 }
 
-function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick }: { profile: User, isOwn: boolean, targetUserId?: string, onUserClick: (uid: string) => void, onMessageClick: (uid: string) => void }) {
+function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick, setError, setSuccessMessage }: { profile: User, isOwn: boolean, targetUserId?: string, onUserClick: (uid: string) => void, onMessageClick: (uid: string) => void, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
   const [targetProfile, setTargetProfile] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [followers, setFollowers] = useState<string[]>([]);
   const [following, setFollowing] = useState<string[]>([]);
+  const [filteredFollowers, setFilteredFollowers] = useState<string[]>([]);
+  const [filteredFollowing, setFilteredFollowing] = useState<string[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [showList, setShowList] = useState<'followers' | 'following' | null>(null);
   const [usersList, setUsersList] = useState<User[]>([]);
@@ -2392,18 +2411,25 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
     }
   };
 
-  const fetchUsersList = async (ids: string[]) => {
+  const fetchUsersList = async (ids: string[], type: 'followers' | 'following') => {
     if (ids.length === 0) {
+      if (type === 'followers') setFilteredFollowers([]);
+      else setFilteredFollowing([]);
       setUsersList([]);
       return;
     }
     const list: User[] = [];
+    const validIds: string[] = [];
     for (const id of ids) {
       const d = await getDoc(doc(db, 'users', id));
       if (d.exists()) {
-        list.push(d.data() as User);
+        const userData = d.data() as User;
+        if (!userData.isDeleted) {
+          list.push(userData);
+          validIds.push(id);
+        }
       } else {
-        // Limpiar relaciones huérfanas si el usuario no existe
+        // Limpiar relaciones huérfanas
         const q1 = query(collection(db, 'follows'), where('followerId', '==', id));
         const q2 = query(collection(db, 'follows'), where('followingId', '==', id));
         const [s1, s2] = await Promise.all([getDocs(q1), getDocs(q2)]);
@@ -2411,13 +2437,35 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
         s2.forEach(doc => deleteDoc(doc.ref));
       }
     }
+    if (type === 'followers') setFilteredFollowers(validIds);
+    else setFilteredFollowing(validIds);
     setUsersList(list);
   };
 
   useEffect(() => {
-    if (showList === 'followers') fetchUsersList(followers);
-    if (showList === 'following') fetchUsersList(following);
+    if (showList === 'followers') fetchUsersList(followers, 'followers');
+    if (showList === 'following') fetchUsersList(following, 'following');
   }, [showList, followers, following]);
+
+  // Efecto para mantener los contadores actualizados sin abrir el modal
+  useEffect(() => {
+    const updateCounts = async () => {
+      const f1: string[] = [];
+      for (const id of followers) {
+        const d = await getDoc(doc(db, 'users', id));
+        if (d.exists() && !(d.data() as User).isDeleted) f1.push(id);
+      }
+      setFilteredFollowers(f1);
+
+      const f2: string[] = [];
+      for (const id of following) {
+        const d = await getDoc(doc(db, 'users', id));
+        if (d.exists() && !(d.data() as User).isDeleted) f2.push(id);
+      }
+      setFilteredFollowing(f2);
+    };
+    updateCounts();
+  }, [followers, following]);
 
   if (!targetProfile) return <Loading />;
 
@@ -2461,7 +2509,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
           <div className="pt-28 flex flex-col md:flex-row md:items-end md:justify-between gap-8">
             <div className="flex-1">
               <div className="flex items-center gap-4">
-                <h1 className="text-5xl font-black text-white tracking-tighter">{targetProfile.displayName}</h1>
+                <h1 className="text-3xl md:text-4xl font-black text-white tracking-tighter">{targetProfile.displayName}</h1>
                 {targetProfile.role === 'admin' && (
                   <div className="bg-red-600 text-white p-1.5 rounded-xl shadow-xl shadow-red-600/20" title="Administrador">
                     <ShieldCheck size={22} strokeWidth={3} />
@@ -2545,11 +2593,11 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
           
           <div className="flex gap-6 mt-6 border-t border-white/5 pt-6">
             <button onClick={() => setShowList('followers')} className="group transition-all">
-              <p className="text-2xl font-black text-white group-hover:text-red-500 transition-colors">{usersList.length && showList === 'followers' ? usersList.length : followers.length}</p>
+              <p className="text-2xl font-black text-white group-hover:text-red-500 transition-colors">{filteredFollowers.length}</p>
               <p className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Seguidores</p>
             </button>
             <button onClick={() => setShowList('following')} className="group transition-all">
-              <p className="text-2xl font-black text-white group-hover:text-red-500 transition-colors">{usersList.length && showList === 'following' ? usersList.length : following.length}</p>
+              <p className="text-2xl font-black text-white group-hover:text-red-500 transition-colors">{filteredFollowing.length}</p>
               <p className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Siguiendo</p>
             </button>
             <div className="group transition-all">
@@ -2665,19 +2713,19 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
         {showList && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 z-[100]">
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }} 
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-zinc-900 rounded-[2.5rem] w-full max-w-sm max-h-[70vh] overflow-hidden flex flex-col shadow-2xl border border-white/10"
+              initial={{ scale: 0.9, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-zinc-900 rounded-[2rem] w-full max-w-sm max-h-[60vh] overflow-hidden flex flex-col shadow-2xl border border-white/10"
             >
-              <div className="p-6 border-b border-white/5 flex justify-between items-center bg-zinc-800/50">
-                <h3 className="font-black text-xl text-white tracking-tighter uppercase">{showList === 'followers' ? 'Seguidores' : 'Siguiendo'}</h3>
+              <div className="p-4 border-b border-white/5 flex justify-between items-center bg-zinc-800/50">
+                <h3 className="font-black text-lg text-white tracking-tighter uppercase">{showList === 'followers' ? 'Seguidores' : 'Siguiendo'}</h3>
                 <button onClick={() => setShowList(null)} className="p-2 hover:bg-zinc-800 rounded-xl transition-all">
-                  <X size={20} strokeWidth={3} className="text-zinc-500 hover:text-white" />
+                  <X size={18} strokeWidth={3} className="text-zinc-500 hover:text-white" />
                 </button>
               </div>
-              <div className="overflow-y-auto p-2 space-y-1 custom-scrollbar">
-                {usersList.map((u) => (
+              <div className="overflow-y-auto p-3 space-y-2 custom-scrollbar flex-1">
+                {usersList.length > 0 ? usersList.map((u) => (
                   <div 
                     key={u.uid} 
                     className="flex items-center gap-3 cursor-pointer hover:bg-zinc-800 p-2.5 rounded-xl transition-all group border border-transparent hover:border-white/5"
@@ -2705,7 +2753,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
                             console.log("Relación de seguimiento eliminada por admin");
                           } catch (err: any) {
                             console.error("Error al eliminar seguimiento:", err);
-                            alert("Error: " + err.message);
+                            setError("Error: " + err.message);
                           }
                         }}
                         className="ml-auto p-3 bg-red-600/10 text-red-500 hover:bg-red-600 hover:text-white rounded-xl transition-all"
@@ -2717,8 +2765,12 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
                       <ArrowRight size={20} className="ml-auto text-zinc-700 group-hover:text-red-500 transition-colors" />
                     )}
                   </div>
-                ))}
-                {usersList.length === 0 && <p className="text-center text-zinc-600 font-black py-10 uppercase tracking-widest">Lista vacía</p>}
+                )) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-zinc-600">
+                    <Users size={40} strokeWidth={1} className="mb-2 opacity-20" />
+                    <p className="font-black text-xs uppercase tracking-[0.2em]">Cargando lista...</p>
+                  </div>
+                )}
               </div>
             </motion.div>
           </div>
@@ -2730,7 +2782,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
 
 // --- Admin Users View ---
 
-function AdminUsersView({ onUserClick }: { onUserClick: (uid: string) => void }) {
+function AdminUsersView({ onUserClick, setError, setSuccessMessage }: { onUserClick: (uid: string) => void, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2816,9 +2868,9 @@ function AdminUsersView({ onUserClick }: { onUserClick: (uid: string) => void })
                 onClick={async () => {
                   try {
                     await updateDoc(doc(db, 'users', u.uid), { coins: (u.coins || 0) + 1000 });
-                    alert(`Se han otorgado 1000 FoxCoins a ${u.displayName}`);
+                    setSuccessMessage(`Se han otorgado 1000 FoxCoins a ${u.displayName}`);
                   } catch (err: any) {
-                    alert("Error: " + err.message);
+                    setError("Error: " + err.message);
                   }
                 }}
                 className="flex-1 md:flex-none px-6 py-4 bg-yellow-500 text-zinc-900 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/20 active:scale-95"

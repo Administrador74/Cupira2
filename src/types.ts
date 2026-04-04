@@ -10,6 +10,7 @@ export interface User {
   gallery?: string[];
   coins?: number;
   inventory?: string[];
+  isDeleted?: boolean;
 }
 
 export interface Post {
