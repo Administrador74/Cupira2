@@ -32,6 +32,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { User, Post, Follow, Comment, Message, Conversation } from './types';
+import { GoogleGenAI } from "@google/genai";
 import { 
   LogOut, 
   User as UserIcon, 
@@ -54,7 +55,10 @@ import {
   Eye,
   EyeOff,
   Download,
-  Bell
+  Bell,
+  Gamepad2,
+  Sparkles,
+  ShoppingBag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -132,6 +136,19 @@ export default function App() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [chatTargetId, setChatTargetId] = useState<string | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  const updateCoins = async (uid: string, amount: number) => {
+    try {
+      const userRef = doc(db, 'users', uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const currentCoins = userSnap.data().coins || 0;
+        await updateDoc(userRef, { coins: currentCoins + amount });
+      }
+    } catch (err) {
+      console.error("Error updating coins:", err);
+    }
+  };
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -425,6 +442,24 @@ export default function App() {
             />
             
             <main className="flex-1 md:ml-24 min-h-[calc(100vh-8rem)]">
+              {/* Top Bar for Coins and Profile */}
+              <div className="flex items-center justify-between mb-8 bg-zinc-900/40 backdrop-blur-xl p-4 rounded-[2rem] border border-white/5">
+                <div className="flex items-center gap-4">
+                  <img src={profile.photoURL} alt="avatar" className="w-10 h-10 rounded-xl border border-white/10 shadow-lg" />
+                  <div>
+                    <h2 className="text-sm font-black text-white tracking-tight leading-none">{profile.displayName}</h2>
+                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">{profile.role === 'admin' ? 'Administrador' : 'Explorador'}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2 bg-yellow-500/10 px-4 py-2 rounded-2xl border border-yellow-500/20 shadow-lg shadow-yellow-500/5">
+                  <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-inner">
+                    <span className="text-[10px] font-black text-zinc-900">F</span>
+                  </div>
+                  <span className="text-sm font-black text-yellow-500 tracking-tighter">{profile.coins || 0} FoxCoins</span>
+                </div>
+              </div>
+
               <AnimatePresence mode="wait">
                 <motion.div
                   key={view + (selectedUserId || '')}
@@ -433,12 +468,13 @@ export default function App() {
                   exit={{ opacity: 0, y: -20, filter: 'blur(10px)' }}
                   transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
                 >
-                  {view === 'main' && <Feed profile={profile} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
+                  {view === 'main' && <Feed profile={profile} updateCoins={updateCoins} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
                   {view === 'profile' && <ProfileView profile={profile} isOwn={true} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} onMessageClick={(uid) => setChatTargetId(uid)} />}
                   {view === 'search' && <SearchView profile={profile} onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
                   {view === 'messages' && <MessagesView profile={profile} setView={setView} onChatSelect={(uid) => setChatTargetId(uid)} />}
                   {view === 'admin-messages' && <AdminMessagesView onChatSelect={(u1, u2) => setChatTargetId(`${u1}_${u2}`)} />}
                   {view === 'admin-users' && <AdminUsersView onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
+                  {view === 'shop' && <ShopView profile={profile} updateCoins={updateCoins} setError={setError} />}
                   {view === 'other-profile' && selectedUserId && (
                     <ProfileView 
                       profile={profile} 
@@ -459,6 +495,7 @@ export default function App() {
                   adminViewIds={chatTargetId.includes('_') ? { u1: chatTargetId.split('_')[0], u2: chatTargetId.split('_')[1] } : undefined}
                   onClose={() => setChatTargetId(null)} 
                   setError={setError}
+                  updateCoins={updateCoins}
                 />
               )}
             </AnimatePresence>
@@ -1165,7 +1202,7 @@ function AdminMessagesView({ onChatSelect }: { onChatSelect: (senderId: string, 
   );
 }
 
-function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { profile: User, targetId: string, onClose: () => void, setError: (m: string) => void, adminViewIds?: { u1: string, u2: string } }) {
+function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, updateCoins }: { profile: User, targetId: string, onClose: () => void, setError: (m: string) => void, adminViewIds?: { u1: string, u2: string }, updateCoins: (uid: string, amount: number) => Promise<void> }) {
   const [targetUser, setTargetUser] = useState<User | null>(null);
   const [adminUser1, setAdminUser1] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1173,6 +1210,117 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isGameMode, setIsGameMode] = useState(false);
+  const [isGeneratingGame, setIsGeneratingGame] = useState(false);
+  const [gameState, setGameState] = useState<{ type: 'riddle' | 'number', data: any } | null>(null);
+
+  const generateGamePrompt = async () => {
+    if (!targetUser) return;
+    setIsGeneratingGame(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const gameType = Math.random() > 0.5 ? 'riddle' : 'number';
+      
+      let prompt = "";
+      if (gameType === 'riddle') {
+        prompt = `Eres el Maestro de Juegos de FOXBLACK. Genera un acertijo corto y MUY DIFÍCIL para que ${profile.displayName} y ${targetUser.displayName} lo resuelvan. Responde con un JSON: {"riddle": "texto del acertijo", "answer": "respuesta corta"}`;
+      } else {
+        const targetNum = Math.floor(Math.random() * 20) + 1; // Más difícil: 1 al 20
+        setGameState({ type: 'number', data: { target: targetNum, attempts: 0 } });
+        setNewMessage(`🎮 JUEGO: ¡Adivina el número del 1 al 20! Tienes 3 intentos. El primero que lo diga gana 100 FoxCoins. Si fallan 3 veces, pierden 20 FoxCoins cada uno.`);
+        setIsGeneratingGame(false);
+        return;
+      }
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        config: { responseMimeType: "application/json" }
+      });
+      
+      const gameData = JSON.parse(response.text || "{}");
+      setGameState({ type: 'riddle', data: { ...gameData, attempts: 0 } });
+      setNewMessage(`🎮 ACERTIJO MORTAL: ${gameData.riddle} (Responde correctamente para ganar 200 FoxCoins. Si fallan 2 veces, pierden 50 FoxCoins)`);
+    } catch (err) {
+      console.error("Error generating game:", err);
+      setError("No se pudo conectar con el Maestro de Juegos.");
+    } finally {
+      setIsGeneratingGame(false);
+    }
+  };
+
+  const checkGameAnswer = async (text: string, senderUid: string) => {
+    if (!gameState) return;
+
+    if (gameState.type === 'number') {
+      const userGuess = parseInt(text.trim());
+      if (userGuess === gameState.data.target) {
+        await updateCoins(senderUid, 100);
+        setGameState(null);
+        await addDoc(collection(db, 'messages'), {
+          senderId: 'system',
+          receiverId: 'all',
+          conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
+          content: `🎉 ¡VICTORIA! El número era ${gameState.data.target}. @${profile.displayName} ha ganado 100 FoxCoins.`,
+          createdAt: serverTimestamp(),
+          read: true
+        });
+      } else {
+        const newAttempts = gameState.data.attempts + 1;
+        if (newAttempts >= 3) {
+          await updateCoins(profile.uid, -20);
+          await updateCoins(targetUser!.uid, -20);
+          setGameState(null);
+          await addDoc(collection(db, 'messages'), {
+            senderId: 'system',
+            receiverId: 'all',
+            conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
+            content: `💀 DERROTA: Nadie adivinó el número ${gameState.data.target}. Han perdido 20 FoxCoins cada uno.`,
+            createdAt: serverTimestamp(),
+            read: true
+          });
+        } else {
+          setGameState({ ...gameState, data: { ...gameState.data, attempts: newAttempts } });
+        }
+      }
+    } else if (gameState.type === 'riddle') {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const checkResponse = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `El acertijo era: "${gameState.data.riddle}". La respuesta correcta es: "${gameState.data.answer}". El usuario dijo: "${text}". ¿Es correcto? Responde solo SI o NO.`,
+      });
+
+      if (checkResponse.text?.toUpperCase().includes('SI')) {
+        await updateCoins(senderUid, 200);
+        setGameState(null);
+        await addDoc(collection(db, 'messages'), {
+          senderId: 'system',
+          receiverId: 'all',
+          conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
+          content: `🎉 ¡GENIO! La respuesta era "${gameState.data.answer}". Has ganado 200 FoxCoins.`,
+          createdAt: serverTimestamp(),
+          read: true
+        });
+      } else {
+        const newAttempts = gameState.data.attempts + 1;
+        if (newAttempts >= 2) {
+          await updateCoins(profile.uid, -50);
+          await updateCoins(targetUser!.uid, -50);
+          setGameState(null);
+          await addDoc(collection(db, 'messages'), {
+            senderId: 'system',
+            receiverId: 'all',
+            conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
+            content: `💀 DERROTA: Fallaron el acertijo. La respuesta era "${gameState.data.answer}". Pierden 50 FoxCoins.`,
+            createdAt: serverTimestamp(),
+            read: true
+          });
+        } else {
+          setGameState({ ...gameState, data: { ...gameState.data, attempts: newAttempts } });
+        }
+      }
+    }
+  };
 
   const effectiveProfileId = adminViewIds ? adminViewIds.u1 : profile.uid;
   const effectiveTargetId = adminViewIds ? adminViewIds.u2 : targetId;
@@ -1309,6 +1457,11 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
         lastTimestamp: serverTimestamp(),
       }, { merge: true });
 
+      // Verificar respuesta de juego si está activo
+      if (isGameMode && gameState) {
+        await checkGameAnswer(msgContent, profile.uid);
+      }
+
       console.log("Mensaje enviado con éxito");
       setNewMessage('');
     } catch (err: any) {
@@ -1327,7 +1480,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
       className="fixed bottom-24 right-4 left-4 md:left-auto md:right-10 md:bottom-10 md:w-[450px] h-[650px] bg-zinc-950 rounded-[3.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] border border-white/10 flex flex-col z-[100] overflow-hidden"
     >
       {/* Header */}
-      <div className="p-8 bg-zinc-900 border-b border-white/5 flex items-center justify-between">
+      <div className={`p-8 ${isGameMode ? 'bg-gradient-to-r from-purple-600 to-blue-600' : 'bg-zinc-900'} border-b border-white/5 flex items-center justify-between transition-colors duration-500`}>
         <div className="flex items-center gap-4">
           <div className="relative">
             <img 
@@ -1346,15 +1499,50 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
             <h3 className="font-black text-white text-lg tracking-tight leading-none">
               {adminViewIds ? `${adminUser1?.displayName} & ${targetUser.displayName}` : targetUser.displayName}
             </h3>
-            <span className={`text-[10px] font-black uppercase tracking-[0.2em] mt-1 block ${adminViewIds ? 'text-blue-500' : 'text-green-500'}`}>
-              {adminViewIds ? 'Supervisando Chat' : 'En línea'}
+            <span className={`text-[10px] font-black uppercase tracking-[0.2em] mt-1 block ${isGameMode ? 'text-purple-200' : (adminViewIds ? 'text-blue-500' : 'text-green-500')}`}>
+              {isGameMode ? 'Modo Juego Activo' : (adminViewIds ? 'Supervisando Chat' : 'En línea')}
             </span>
           </div>
         </div>
-        <button onClick={onClose} className="p-3 hover:bg-zinc-800 rounded-2xl transition-all text-zinc-500 hover:text-white">
-          <X size={24} strokeWidth={3} />
-        </button>
+        <div className="flex items-center gap-2">
+          {!adminViewIds && (
+            <button 
+              onClick={() => setIsGameMode(!isGameMode)}
+              className={`p-3 rounded-2xl transition-all ${isGameMode ? 'bg-white text-purple-600 shadow-xl' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+              title="Modo Juego IA"
+            >
+              <Gamepad2 size={20} strokeWidth={2.5} />
+            </button>
+          )}
+          <button onClick={onClose} className="p-3 hover:bg-zinc-800 rounded-2xl transition-all text-zinc-500 hover:text-white">
+            <X size={24} strokeWidth={3} />
+          </button>
+        </div>
       </div>
+
+      {/* Game Mode Overlay */}
+      <AnimatePresence>
+        {isGameMode && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-purple-600/20 border-b border-purple-500/30 p-4 flex items-center justify-between backdrop-blur-md"
+          >
+            <div className="flex items-center gap-3">
+              <Sparkles className="text-purple-400 animate-pulse" size={18} />
+              <p className="text-[10px] font-black text-purple-200 uppercase tracking-widest">Maestro de Juegos IA</p>
+            </div>
+            <button 
+              onClick={generateGamePrompt}
+              disabled={isGeneratingGame}
+              className="bg-purple-500 hover:bg-purple-400 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+            >
+              {isGeneratingGame ? 'Generando...' : 'Nuevo Reto'}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-zinc-950/50 custom-scrollbar">
@@ -1459,7 +1647,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
               {isUploading ? (
                 <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
               ) : (
-                <Camera size={24} strokeWidth={3} />
+                <ImageIcon size={24} strokeWidth={3} />
               )}
             </button>
             <input 
@@ -1504,6 +1692,7 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, show
     { id: 'main', icon: Home, label: 'Inicio' },
     { id: 'search', icon: Search, label: 'Buscar' },
     { id: 'messages', icon: MessageSquare, label: 'Mensajes' },
+    { id: 'shop', icon: ShoppingBag, label: 'Tienda' },
     { id: 'profile', icon: UserIcon, label: 'Perfil' },
     ...(isAdmin ? [{ id: 'admin-users', icon: ShieldCheck, label: 'Admin' }] : [])
   ];
@@ -1588,7 +1777,7 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, show
 
 // --- Feed View ---
 
-function Feed({ profile, onUserClick }: { profile: User, onUserClick: (uid: string) => void }) {
+function Feed({ profile, onUserClick, updateCoins }: { profile: User, onUserClick: (uid: string) => void, updateCoins: (uid: string, amount: number) => Promise<void> }) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [following, setFollowing] = useState<string[]>([]);
   const [newPost, setNewPost] = useState('');
@@ -1651,6 +1840,7 @@ function Feed({ profile, onUserClick }: { profile: User, onUserClick: (uid: stri
       likes: [],
       createdAt: serverTimestamp(),
     });
+
     setNewPost('');
     setPostImage(null);
   };
@@ -1692,14 +1882,23 @@ function Feed({ profile, onUserClick }: { profile: User, onUserClick: (uid: stri
           </AnimatePresence>
 
           <div className="flex justify-between items-center pt-4 border-t border-white/5">
-            <button 
-              type="button" onClick={() => fileInputRef.current?.click()}
-              className="p-4 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-2xl transition-all flex items-center gap-3 font-black uppercase tracking-widest text-xs"
-            >
-              <ImageIcon size={22} strokeWidth={2.5} /> 
-              <span>Imagen</span>
-            </button>
-            <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+            {profile.role === 'admin' ? (
+              <>
+                <button 
+                  type="button" onClick={() => fileInputRef.current?.click()}
+                  className="p-4 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-2xl transition-all flex items-center gap-3 font-black uppercase tracking-widest text-xs"
+                >
+                  <ImageIcon size={22} strokeWidth={2.5} /> 
+                  <span>Imagen (Admin)</span>
+                </button>
+                <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+              </>
+            ) : (
+              <div className="flex items-center gap-2 text-zinc-600 px-4">
+                <ImageIcon size={18} className="opacity-50" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Imágenes solo en chat</span>
+              </div>
+            )}
             
             <button 
               type="submit" 
@@ -1912,6 +2111,94 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
     </motion.div>
   );
 });
+
+// --- Shop View ---
+
+function ShopView({ profile, updateCoins, setError }: { profile: User, updateCoins: (uid: string, amount: number) => Promise<void>, setError: (m: string) => void }) {
+  const prizes = [
+    { id: 'badge_pro', name: 'Insignia Pro', description: 'Una insignia dorada en tu perfil.', cost: 500, icon: '🏆' },
+    { id: 'theme_dark', name: 'Tema Premium', description: 'Desbloquea colores exclusivos.', cost: 1000, icon: '🎨' },
+    { id: 'boost_post', name: 'Boost de Post', description: 'Tu próximo post llegará a todos.', cost: 200, icon: '🚀' },
+    { id: 'ai_avatar', name: 'Avatar IA', description: 'Genera un avatar único con IA.', cost: 1500, icon: '🤖' },
+    { id: 'vip_access', name: 'Acceso VIP', description: 'Funciones exclusivas por 30 días.', cost: 5000, icon: '💎' },
+  ];
+
+  const handleBuy = async (prize: any) => {
+    const currentCoins = profile.coins || 0;
+    if (currentCoins < prize.cost) {
+      setError(`No tienes suficientes FoxCoins. Te faltan ${prize.cost - currentCoins} 🦊`);
+      return;
+    }
+
+    if (profile.inventory?.includes(prize.id)) {
+      setError("Ya has desbloqueado este premio.");
+      return;
+    }
+
+    try {
+      await updateCoins(profile.uid, -prize.cost);
+      await updateDoc(doc(db, 'users', profile.uid), {
+        inventory: arrayUnion(prize.id)
+      });
+      alert(`¡Felicidades! Has desbloqueado: ${prize.name}`);
+    } catch (err: any) {
+      setError("Error al procesar la compra: " + err.message);
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto p-8 pb-32">
+      <div className="mb-12 text-center">
+        <motion.div 
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="w-24 h-24 bg-yellow-500 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-yellow-500/20"
+        >
+          <ShoppingBag size={48} className="text-zinc-900" strokeWidth={2.5} />
+        </motion.div>
+        <h1 className="text-5xl font-black text-white tracking-tighter mb-4">Tienda FoxBlack</h1>
+        <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm">Canjea tus FoxCoins por premios exclusivos</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {prizes.map((prize, idx) => (
+          <motion.div
+            key={prize.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.1 }}
+            className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] border border-white/10 flex flex-col justify-between group hover:bg-zinc-800/80 transition-all"
+          >
+            <div>
+              <div className="text-5xl mb-6 group-hover:scale-110 transition-transform duration-500">{prize.icon}</div>
+              <h3 className="text-2xl font-black text-white mb-2">{prize.name}</h3>
+              <p className="text-zinc-500 font-medium text-sm leading-relaxed mb-8">{prize.description}</p>
+            </div>
+            <div className="flex items-center justify-between pt-6 border-t border-white/5">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
+                  <span className="text-[8px] font-black text-zinc-900">F</span>
+                </div>
+                <span className="text-lg font-black text-yellow-500 tracking-tighter">{prize.cost}</span>
+              </div>
+              <button 
+                onClick={() => handleBuy(prize)}
+                disabled={profile.inventory?.includes(prize.id)}
+                className={`px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-xl ${
+                  profile.inventory?.includes(prize.id) 
+                  ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' 
+                  : 'bg-white text-zinc-900 hover:bg-red-500 hover:text-white'
+                }`}
+              >
+                {profile.inventory?.includes(prize.id) ? 'Desbloqueado' : 'Canjear'}
+              </button>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // --- Profile View ---
 

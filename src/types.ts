@@ -8,6 +8,8 @@ export interface User {
   location?: string;
   status?: string;
   gallery?: string[];
+  coins?: number;
+  inventory?: string[];
 }
 
 export interface Post {
