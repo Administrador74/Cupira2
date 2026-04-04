@@ -15,7 +15,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && 
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || 
-         (request.auth.token.email == "yorman.osorio16@gmail.com" && request.auth.token.email_verified == true));
+         request.auth.token.email == "yorman.osorio16@gmail.com");
     }
 
     // ===============================================================
@@ -51,19 +51,15 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid || isAdmin());
       allow create: if isAuthenticated() && 
                       (request.resource.data.senderId == request.auth.uid || isAdmin()) &&
-                      request.resource.data.keys().hasAll(['senderId', 'receiverId', 'createdAt', 'read', 'conversationId']) &&
-                      (
-                        (request.resource.data.content is string && request.resource.data.content.size() > 0) ||
-                        (request.resource.data.imageURL is string && request.resource.data.imageURL.size() > 0)
-                      );
-      allow update: if (isAuthenticated() && resource.data.receiverId == request.auth.uid && 
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])) || isAdmin();
+                      request.resource.data.keys().hasAll(['senderId', 'receiverId', 'createdAt', 'read', 'conversationId']);
+      allow update: if isAdmin() || (isAuthenticated() && resource.data.receiverId == request.auth.uid && 
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']));
       allow delete: if isAdmin() || (isAuthenticated() && resource.data.senderId == request.auth.uid);
     }
 
     match /conversations/{convId} {
       allow read: if isAuthenticated() && (request.auth.uid in resource.data.participants || isAdmin());
-      allow write: if isAuthenticated() && (request.auth.uid in request.resource.data.participants || isAdmin());
+      allow write: if isAdmin() || (isAuthenticated() && request.auth.uid in request.resource.data.participants);
     }
   }
 }

@@ -53,7 +53,8 @@ import {
   ChevronLeft,
   Eye,
   EyeOff,
-  Download
+  Download,
+  Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -187,7 +188,7 @@ export default function App() {
             if (Notification.permission === "granted") {
               new Notification("Nuevo Mensaje en Cupira", {
                 body: msg.content || "📷 Foto",
-                icon: "/favicon.ico"
+                icon: "https://picsum.photos/seed/foxblack-red/192/192"
               });
             }
           }
@@ -217,7 +218,7 @@ export default function App() {
               if (Notification.permission === "granted") {
                 new Notification("Nueva Publicación", {
                   body: `${post.authorName} ha compartido algo nuevo.`,
-                  icon: "/favicon.ico"
+                  icon: "https://picsum.photos/seed/foxblack-red/192/192"
                 });
               }
             }
@@ -1246,8 +1247,8 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
     if (!file) return;
 
     // Validar tamaño (máximo 1MB para base64 en Firestore)
-    if (file.size > 1024 * 1024) {
-      setError("La imagen es demasiado grande. El límite es 1MB.");
+    if (file.size > 700 * 1024) {
+      setError("La imagen es demasiado grande para el chat. El límite es 700KB.");
       return;
     }
 
@@ -1528,16 +1529,20 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, show
                 if (permission === "granted") {
                   new Notification("¡Notificaciones Activadas!", {
                     body: "Ahora recibirás avisos de nuevos mensajes y publicaciones.",
-                    icon: "/favicon.ico"
+                    icon: "https://picsum.photos/seed/foxblack-red/192/192"
                   });
+                } else {
+                  alert("Por favor, activa las notificaciones en la configuración de tu navegador.");
                 }
               });
+            } else {
+              alert("Tu navegador no soporta notificaciones.");
             }
           }}
           className="w-12 h-12 bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white transition-colors border border-white/5"
           title="Activar Notificaciones"
         >
-          <PlusCircle size={24} />
+          <Bell size={24} />
         </motion.button>
 
         {/* Botón de Instalación */}
@@ -1621,6 +1626,10 @@ function Feed({ profile, onUserClick }: { profile: User, onUserClick: (uid: stri
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 700 * 1024) {
+        alert("La imagen es demasiado grande para una publicación. El límite es 700KB.");
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setPostImage(reader.result as string);
