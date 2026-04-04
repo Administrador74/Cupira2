@@ -1332,7 +1332,14 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
           const isAdminMsg = msg.senderId !== effectiveProfileId && msg.senderId !== effectiveTargetId;
           
           return (
-            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} group/msg`}>
+            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} group/msg items-end gap-3`}>
+              {!isMe && (
+                <img 
+                  src={msg.senderId === targetUser.uid ? targetUser.photoURL : (adminUser1?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.senderId}`)} 
+                  alt="avatar" 
+                  className="w-8 h-8 rounded-full border border-white/10 shadow-lg object-cover mb-1 flex-shrink-0"
+                />
+              )}
               <div className={`max-w-[85%] p-5 rounded-[2rem] font-medium text-sm shadow-2xl relative ${
                 isMe
                   ? 'bg-red-600 text-white rounded-tr-none shadow-red-600/10' 
@@ -1581,6 +1588,7 @@ function Feed({ profile, onUserClick }: { profile: User, onUserClick: (uid: stri
       authorId: profile.uid,
       authorName: profile.displayName,
       authorRole: profile.role,
+      authorPhotoURL: profile.photoURL || null,
       content: newPost,
       imageURL: postImage || null,
       likes: [],
@@ -1719,20 +1727,20 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
           <div className="flex items-center gap-5 cursor-pointer group/author" onClick={() => onUserClick(post.authorId)}>
             <div className="relative">
               <img 
-                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${post.authorId}`} 
+                src={post.authorPhotoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.authorId}`} 
                 alt="avatar" 
-                className="w-14 h-14 rounded-2xl shadow-xl group-hover/author:scale-105 transition-transform border-2 border-white/10" 
+                className="w-14 h-14 rounded-full shadow-xl group-hover/author:scale-110 transition-all duration-500 border-4 border-white/10 object-cover" 
                 loading="lazy"
               />
               {(post.authorRole === 'admin' || post.authorName === 'Administrador') && (
-                <div className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full border-4 border-zinc-900">
-                  <ShieldCheck size={14} strokeWidth={3} />
+                <div className="absolute -bottom-1 -right-1 bg-red-600 text-white p-1 rounded-full border-2 border-zinc-900 shadow-lg">
+                  <ShieldCheck size={12} strokeWidth={3} />
                 </div>
               )}
             </div>
             <div>
-              <h3 className="font-black text-white group-hover/author:text-red-500 transition-colors text-lg tracking-tight">{post.authorName}</h3>
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Hace un momento</p>
+              <h3 className="font-black text-white group-hover/author:text-red-500 transition-colors text-lg tracking-tight leading-none mb-1">{post.authorName}</h3>
+              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest opacity-60">Publicado recientemente</p>
             </div>
           </div>
           {(profile.role === 'admin' || post.authorId === profile.uid) && (
@@ -1913,7 +1921,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
   const [showList, setShowList] = useState<'followers' | 'following' | null>(null);
   const [usersList, setUsersList] = useState<User[]>([]);
   const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState({ location: '', status: '' });
+  const [editData, setEditData] = useState({ displayName: '', location: '', status: '' });
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -1927,7 +1935,11 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
       if (docSnap.exists()) {
         const data = docSnap.data() as User;
         setTargetProfile(data);
-        setEditData({ location: data.location || '', status: data.status || '' });
+        setEditData({ 
+          displayName: data.displayName || '', 
+          location: data.location || '', 
+          status: data.status || '' 
+        });
       }
     });
 
@@ -2003,6 +2015,7 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
   const handleSaveProfile = async () => {
     try {
       await updateDoc(doc(db, 'users', uid), {
+        displayName: editData.displayName,
         location: editData.location,
         status: editData.status
       });
@@ -2097,16 +2110,30 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
               
               {isEditing ? (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 mt-6 bg-zinc-800/50 p-6 rounded-[2rem] border border-white/5">
-                  <input 
-                    type="text" placeholder="¿Dónde vives?" 
-                    className="w-full px-6 py-4 bg-zinc-900/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none text-sm font-bold text-white placeholder:text-zinc-500 shadow-inner transition-all"
-                    value={editData.location} onChange={(e) => setEditData({ ...editData, location: e.target.value })}
-                  />
-                  <input 
-                    type="text" placeholder="Estado actual (Bio)" 
-                    className="w-full px-6 py-4 bg-zinc-900/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none text-sm font-bold text-white placeholder:text-zinc-500 shadow-inner transition-all"
-                    value={editData.status} onChange={(e) => setEditData({ ...editData, status: e.target.value })}
-                  />
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-4">Nombre Público</label>
+                    <input 
+                      type="text" placeholder="Tu nombre" 
+                      className="w-full px-6 py-4 bg-zinc-900/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none text-sm font-bold text-white placeholder:text-zinc-500 shadow-inner transition-all"
+                      value={editData.displayName} onChange={(e) => setEditData({ ...editData, displayName: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-4">Ubicación</label>
+                    <input 
+                      type="text" placeholder="¿Dónde vives?" 
+                      className="w-full px-6 py-4 bg-zinc-900/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none text-sm font-bold text-white placeholder:text-zinc-500 shadow-inner transition-all"
+                      value={editData.location} onChange={(e) => setEditData({ ...editData, location: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-4">Biografía / Estado</label>
+                    <input 
+                      type="text" placeholder="Estado actual (Bio)" 
+                      className="w-full px-6 py-4 bg-zinc-900/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none text-sm font-bold text-white placeholder:text-zinc-500 shadow-inner transition-all"
+                      value={editData.status} onChange={(e) => setEditData({ ...editData, status: e.target.value })}
+                    />
+                  </div>
                   <div className="flex gap-3 pt-2">
                     <button onClick={handleSaveProfile} className="bg-red-600 text-white px-8 py-3 rounded-2xl text-sm font-black shadow-xl shadow-red-600/20 hover:bg-red-700 transition-all active:scale-95 uppercase tracking-widest">Guardar</button>
                     <button onClick={() => setIsEditing(false)} className="bg-zinc-700 text-zinc-300 px-8 py-3 rounded-2xl text-sm font-black hover:bg-zinc-600 transition-all uppercase tracking-widest">Cancelar</button>
