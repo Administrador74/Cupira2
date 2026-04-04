@@ -1306,25 +1306,29 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
                 {msg.deletedByAdmin ? (
                   <div className="flex items-center gap-2">
                     <ShieldCheck size={14} />
-                    <span>{profile.role === 'admin' ? `[BORRADO] ${msg.content}` : 'Un Administrador borró este mensaje'}</span>
+                    <span className="italic">{msg.content || 'Este mensaje fue eliminado por un administrador'}</span>
                   </div>
                 ) : (
                   msg.content
                 )}
                 
-                {profile.role === 'admin' && !msg.deletedByAdmin && (
+                {profile.role === 'admin' && (
                   <button 
                     onClick={async () => {
+                      if (!window.confirm("¿Estás seguro de eliminar este mensaje por completo de la base de datos? Esta acción no se puede deshacer.")) return;
                       try {
-                        await updateDoc(doc(db, 'messages', msg.id), {
-                          deletedByAdmin: true
+                        const convId = [effectiveProfileId, effectiveTargetId].sort().join('_');
+                        await deleteDoc(doc(db, 'messages', msg.id));
+                        // También actualizamos la vista previa de la conversación para que no se vea el contenido prohibido
+                        await updateDoc(doc(db, 'conversations', convId), {
+                          lastMessage: '[Mensaje eliminado por el administrador]'
                         });
                       } catch (err: any) {
-                        setError("Error al borrar mensaje: " + err.message);
+                        setError("Error al eliminar mensaje: " + err.message);
                       }
                     }}
                     className="absolute -top-2 -right-2 bg-zinc-800 text-red-500 p-2 rounded-full shadow-xl opacity-0 group-hover/msg:opacity-100 transition-opacity hover:bg-red-600 hover:text-white"
-                    title="Borrar mensaje"
+                    title="Eliminar mensaje por completo"
                   >
                     <Trash2 size={12} strokeWidth={3} />
                   </button>
@@ -1685,13 +1689,26 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
                       className="w-10 h-10 rounded-xl flex-shrink-0 cursor-pointer shadow-lg border border-white/10" 
                       onClick={() => onUserClick(c.authorId)}
                     />
-                    <div className="bg-zinc-800/50 p-4 rounded-[1.5rem] shadow-sm flex-1 border border-white/5">
-                      <p 
-                        className="text-xs font-black text-red-500 cursor-pointer hover:underline mb-1 uppercase tracking-widest"
-                        onClick={() => onUserClick(c.authorId)}
-                      >
-                        {c.authorName}
-                      </p>
+                    <div className="bg-zinc-800/50 p-4 rounded-[1.5rem] shadow-sm flex-1 border border-white/5 relative group/comment">
+                      <div className="flex justify-between items-start">
+                        <p 
+                          className="text-xs font-black text-red-500 cursor-pointer hover:underline mb-1 uppercase tracking-widest"
+                          onClick={() => onUserClick(c.authorId)}
+                        >
+                          {c.authorName}
+                        </p>
+                        {(profile.role === 'admin' || c.authorId === profile.uid) && (
+                          <button 
+                            onClick={async () => {
+                              if (!window.confirm("¿Eliminar este comentario?")) return;
+                              await deleteDoc(doc(db, 'comments', c.id));
+                            }}
+                            className="p-1 text-zinc-600 hover:text-red-500 opacity-0 group-hover/comment:opacity-100 transition-all"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
                       <p className="text-sm text-zinc-300 font-medium leading-relaxed">{c.content}</p>
                     </div>
                   </div>
