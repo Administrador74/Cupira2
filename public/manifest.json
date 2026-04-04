@@ -1,21 +1,21 @@
 {
-  "short_name": "Cupira",
-  "name": "Cupira Conectada",
+  "short_name": "CupiraApp",
+  "name": "CupiraApp 2.0",
   "icons": [
     {
-      "src": "https://picsum.photos/seed/foxblack-red/192/192",
+      "src": "https://picsum.photos/seed/cupiraapp-red/192/192",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any"
     },
     {
-      "src": "https://picsum.photos/seed/foxblack-red/512/512",
+      "src": "https://picsum.photos/seed/cupiraapp-red/512/512",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any"
     },
     {
-      "src": "https://picsum.photos/seed/foxblack-red/512/512",
+      "src": "https://picsum.photos/seed/cupiraapp-red/512/512",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "maskable"

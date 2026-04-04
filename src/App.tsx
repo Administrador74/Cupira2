@@ -215,7 +215,7 @@ export default function App() {
             if (Notification.permission === "granted") {
               new Notification("Nuevo Mensaje en Cupira", {
                 body: msg.content || "📷 Foto",
-                icon: "https://picsum.photos/seed/foxblack-red/192/192"
+                icon: "https://picsum.photos/seed/cupiraapp-red/192/192"
               });
             }
           }
@@ -245,7 +245,7 @@ export default function App() {
               if (Notification.permission === "granted") {
                 new Notification("Nueva Publicación", {
                   body: `${post.authorName} ha compartido algo nuevo.`,
-                  icon: "https://picsum.photos/seed/foxblack-red/192/192"
+                  icon: "https://picsum.photos/seed/cupiraapp-red/192/192"
                 });
               }
             }
@@ -365,7 +365,7 @@ export default function App() {
     return (
       <div className="flex items-center justify-center h-screen bg-blue-600 text-white text-center p-6">
         <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-          <h1 className="text-4xl font-bold mb-4">¡Gracias por usar Cupira Conectada V2!</h1>
+          <h1 className="text-4xl font-bold mb-4">¡Gracias por usar CupiraApp 2.0!</h1>
           <p className="text-xl">Vuelve pronto.</p>
         </motion.div>
       </div>
@@ -598,7 +598,7 @@ function Login({ setView, setSuccessMessage, setPendingView }: { setView: (v: an
           >
             <Users className="text-white" size={40} strokeWidth={2.5} />
           </motion.div>
-          <h1 className="text-5xl font-black text-white tracking-tighter mb-2">FOX<span className="text-red-600">BLACK</span></h1>
+          <h1 className="text-5xl font-black text-white tracking-tighter mb-2">CUPIRA<span className="text-red-600">APP</span></h1>
           <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Conectando a Cupira</p>
         </div>
 
@@ -760,7 +760,7 @@ function Register({ setView, setSuccessMessage, setPendingView }: { setView: (v:
           >
             <Users className="text-white" size={40} strokeWidth={2.5} />
           </motion.div>
-          <h1 className="text-5xl font-black text-white tracking-tighter mb-2">FOX<span className="text-red-600">BLACK</span></h1>
+          <h1 className="text-5xl font-black text-white tracking-tighter mb-2">CUPIRA<span className="text-red-600">APP</span></h1>
           <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Únete a la manada</p>
         </div>
 
@@ -1231,26 +1231,36 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
   const generateGamePrompt = async () => {
     if (!targetUser) return;
     setIsGeneratingGame(true);
+    
+    // Local games list
+    const localGameTypes = ['number', 'math'];
+    const useAI = Math.random() > 0.7; // 30% chance for AI if key is available
+    
     try {
       const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || (window as any).API_KEY;
-      if (!apiKey || apiKey === "") {
-        setError("No se pudo conectar con el Maestro de Juegos: API Key no encontrada. Por favor, asegúrate de que la variable GEMINI_API_KEY esté configurada.");
-        setIsGeneratingGame(false);
-        return;
-      }
-      const ai = new GoogleGenAI({ apiKey });
-      const gameType = Math.random() > 0.5 ? 'riddle' : 'number';
       
-      let prompt = "";
-      if (gameType === 'riddle') {
-        prompt = `Eres el Maestro de Juegos de CUPIRAAPP. Genera un acertijo corto y MUY DIFÍCIL para que ${profile.displayName} y ${targetUser.displayName} lo resuelvan. Responde con un JSON: {"riddle": "texto del acertijo", "answer": "respuesta corta"}`;
-      } else {
-        const targetNum = Math.floor(Math.random() * 20) + 1; // Más difícil: 1 al 20
-        setGameState({ type: 'number', data: { target: targetNum, attempts: 0 } });
-        setNewMessage(`🎮 JUEGO: ¡Adivina el número del 1 al 20! Tienes 3 intentos. El primero que lo diga gana 100 CupiraCoins. Si fallan 3 veces, pierden 20 CupiraCoins cada uno.`);
+      if (!apiKey || apiKey === "" || !useAI) {
+        // Fallback to local games
+        const gameType = localGameTypes[Math.floor(Math.random() * localGameTypes.length)];
+        
+        if (gameType === 'number') {
+          const targetNum = Math.floor(Math.random() * 20) + 1;
+          setGameState({ type: 'number', data: { target: targetNum, attempts: 0 } });
+          setNewMessage(`🎮 JUEGO: ¡Adivina el número del 1 al 20! Tienes 3 intentos. El primero que lo diga gana 100 CupiraCoins. Si fallan 3 veces, pierden 20 CupiraCoins cada uno.`);
+        } else if (gameType === 'math') {
+          const a = Math.floor(Math.random() * 50) + 1;
+          const b = Math.floor(Math.random() * 50) + 1;
+          const op = Math.random() > 0.5 ? '+' : '-';
+          const result = op === '+' ? a + b : a - b;
+          setGameState({ type: 'math', data: { answer: result, attempts: 0 } });
+          setNewMessage(`🎮 RETO MATEMÁTICO: ¿Cuánto es ${a} ${op} ${b}? El primero en responder gana 150 CupiraCoins. Tienes 2 intentos.`);
+        }
         setIsGeneratingGame(false);
         return;
       }
+
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `Eres el Maestro de Juegos de CUPIRAAPP. Genera un acertijo corto y MUY DIFÍCIL para que ${profile.displayName} y ${targetUser.displayName} lo resuelvan. Responde con un JSON: {"riddle": "texto del acertijo", "answer": "respuesta corta"}`;
 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
@@ -1266,7 +1276,10 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
       setNewMessage(`🎮 ACERTIJO MORTAL: ${gameData.riddle} (Responde correctamente para ganar 200 CupiraCoins. Si fallan 2 veces, pierden 50 CupiraCoins)`);
     } catch (err: any) {
       console.error("Error generating game:", err);
-      setError("No se pudo conectar con el Maestro de Juegos: " + (err.message || "Error desconocido"));
+      // If AI fails, fallback to a local game instead of error
+      const targetNum = Math.floor(Math.random() * 10) + 1;
+      setGameState({ type: 'number', data: { target: targetNum, attempts: 0 } });
+      setNewMessage(`🎮 JUEGO (Local): ¡Adivina el número del 1 al 10! Gana 50 CupiraCoins.`);
     } finally {
       setIsGeneratingGame(false);
     }
@@ -1299,6 +1312,35 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
             receiverId: 'all',
             conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
             content: `💀 DERROTA: Nadie adivinó el número ${gameState.data.target}. Han perdido 20 CupiraCoins cada uno.`,
+            createdAt: serverTimestamp(),
+            read: true
+          });
+        } else {
+          setGameState({ ...gameState, data: { ...gameState.data, attempts: newAttempts } });
+        }
+      }
+    } else if (gameState.type === 'math') {
+      const userGuess = parseInt(text.trim());
+      if (userGuess === gameState.data.answer) {
+        await updateCoins(senderUid, 150);
+        setGameState(null);
+        await addDoc(collection(db, 'messages'), {
+          senderId: 'system',
+          receiverId: 'all',
+          conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
+          content: `🧮 ¡GENIO! La respuesta era ${gameState.data.answer}. @${profile.displayName} ha ganado 150 CupiraCoins.`,
+          createdAt: serverTimestamp(),
+          read: true
+        });
+      } else {
+        const newAttempts = gameState.data.attempts + 1;
+        if (newAttempts >= 2) {
+          setGameState(null);
+          await addDoc(collection(db, 'messages'), {
+            senderId: 'system',
+            receiverId: 'all',
+            conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
+            content: `💀 FALLO MATEMÁTICO: La respuesta era ${gameState.data.answer}. Se acabaron los intentos.`,
             createdAt: serverTimestamp(),
             read: true
           });
@@ -1756,7 +1798,7 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, show
                 if (permission === "granted") {
                   new Notification("¡Notificaciones Activadas!", {
                     body: "Ahora recibirás avisos de nuevos mensajes y publicaciones.",
-                    icon: "https://picsum.photos/seed/foxblack-red/192/192"
+                    icon: "https://picsum.photos/seed/cupiraapp-red/192/192"
                   });
                 } else {
                   alert("Por favor, activa las notificaciones en la configuración de tu navegador.");
@@ -1895,7 +1937,7 @@ function Feed({ profile, onUserClick, updateCoins }: { profile: User, onUserClic
           <div className="flex gap-3 md:gap-5">
             <img src={profile.photoURL} alt="me" className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl shadow-xl border-2 border-white/10" />
             <textarea 
-              placeholder="¿Qué está pasando en FOXBLACK?" 
+              placeholder="¿Qué está pasando en CupiraApp?" 
               className="w-full p-4 md:p-5 bg-zinc-800/50 rounded-[1.5rem] md:rounded-[2rem] border border-white/5 focus:ring-2 focus:ring-red-500 outline-none resize-none font-medium text-white placeholder:text-zinc-500 transition-all text-sm md:text-base"
               rows={2} value={newPost} onChange={(e) => setNewPost(e.target.value)}
             />
