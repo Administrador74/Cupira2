@@ -11,6 +11,7 @@ export interface User {
   coins?: number;
   inventory?: string[];
   isDeleted?: boolean;
+  themeColor?: string;
 }
 
 export interface Post {
@@ -19,6 +20,7 @@ export interface Post {
   authorName: string;
   authorRole?: 'admin' | 'user';
   authorPhotoURL?: string;
+  authorInventory?: string[];
   content: string;
   createdAt: any; // Timestamp
   imageURL?: string;

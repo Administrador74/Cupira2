@@ -48,6 +48,7 @@ import {
   MessageCircle,
   Send,
   X,
+  Check,
   ArrowRight,
   MoreVertical,
   MessageSquare,
@@ -132,10 +133,19 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'login' | 'register' | 'main' | 'profile' | 'search' | 'other-profile' | 'messages' | 'admin-messages'>('login');
+  const [view, setView] = useState<'login' | 'register' | 'main' | 'profile' | 'search' | 'other-profile' | 'messages' | 'admin-messages' | 'users-list'>('login');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [chatTargetId, setChatTargetId] = useState<string | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  // --- Theme Logic ---
+  useEffect(() => {
+    if (profile?.themeColor) {
+      document.documentElement.style.setProperty('--primary-color', profile.themeColor);
+    } else {
+      document.documentElement.style.setProperty('--primary-color', '#ef4444'); // Default red-500
+    }
+  }, [profile?.themeColor]);
 
   const updateCoins = async (uid: string, amount: number) => {
     try {
@@ -439,6 +449,7 @@ export default function App() {
               isAdmin={profile.role === 'admin'} 
               onInstall={handleInstallApp}
               showInstall={!!deferredPrompt}
+              profile={profile}
             />
             
             <main className="flex-1 md:ml-24 min-h-[calc(100vh-8rem)]">
@@ -474,6 +485,7 @@ export default function App() {
                   {view === 'messages' && <MessagesView profile={profile} setView={setView} onChatSelect={(uid) => setChatTargetId(uid)} />}
                   {view === 'admin-messages' && <AdminMessagesView onChatSelect={(u1, u2) => setChatTargetId(`${u1}_${u2}`)} />}
                   {view === 'admin-users' && <AdminUsersView onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} setError={setError} setSuccessMessage={setSuccessMessage} />}
+                  {view === 'users-list' && <UsersListView onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
                   {view === 'shop' && <ShopView profile={profile} updateCoins={updateCoins} setError={setError} setSuccessMessage={setSuccessMessage} />}
                   {view === 'other-profile' && selectedUserId && (
                     <ProfileView 
@@ -1220,14 +1232,15 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
     if (!targetUser) return;
     setIsGeneratingGame(true);
     try {
-      // Intentar obtener la API Key de varias fuentes posibles en este entorno
       const apiKey = process.env.GEMINI_API_KEY || 
                      process.env.API_KEY || 
                      (import.meta as any).env?.VITE_GEMINI_API_KEY ||
                      (window as any).API_KEY;
                      
       if (!apiKey) {
-        throw new Error("API Key no encontrada. Por favor, asegúrate de que la variable GEMINI_API_KEY esté configurada.");
+        setError("No se pudo conectar con el Maestro de Juegos: API Key no encontrada. Por favor, asegúrate de que la variable GEMINI_API_KEY esté configurada.");
+        setIsGeneratingGame(false);
+        return;
       }
       const ai = new GoogleGenAI({ apiKey });
       const gameType = Math.random() > 0.5 ? 'riddle' : 'number';
@@ -1298,8 +1311,11 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
         }
       }
     } else if (gameState.type === 'riddle') {
-      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
-      if (!apiKey) return;
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY || (window as any).API_KEY;
+      if (!apiKey) {
+        setError("Error de API Key en el Maestro de Juegos.");
+        return;
+      }
       const ai = new GoogleGenAI({ apiKey });
       const checkResponse = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
@@ -1704,13 +1720,14 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
 
 // --- Navigation ---
 
-const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, showInstall }: { 
+const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, showInstall, profile }: { 
   setView: (v: any) => void, 
   currentView: string, 
   onLogout: () => void, 
   isAdmin: boolean,
   onInstall: () => void,
-  showInstall: boolean
+  showInstall: boolean,
+  profile: User | null
 }) => {
   const items = [
     { id: 'main', icon: Home, label: 'Inicio' },
@@ -1718,6 +1735,7 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, show
     { id: 'messages', icon: MessageSquare, label: 'Mensajes' },
     { id: 'shop', icon: ShoppingBag, label: 'Tienda' },
     { id: 'profile', icon: UserIcon, label: 'Perfil' },
+    ...(profile?.inventory?.includes('user_list_access') ? [{ id: 'users-list', icon: Users, label: 'Exploradores' }] : []),
     ...(isAdmin ? [{ id: 'admin-users', icon: ShieldCheck, label: 'Admin' }] : [])
   ];
 
@@ -1859,6 +1877,7 @@ function Feed({ profile, onUserClick, updateCoins }: { profile: User, onUserClic
       authorName: profile.displayName,
       authorRole: profile.role,
       authorPhotoURL: profile.photoURL || null,
+      authorInventory: profile.inventory || [],
       content: newPost,
       imageURL: postImage || null,
       likes: [],
@@ -2005,7 +2024,7 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
       <div className="p-5 md:p-8">
         <div className="flex justify-between items-start mb-4 md:mb-6">
           <div className="flex items-center gap-3 md:gap-5 cursor-pointer group/author" onClick={() => onUserClick(post.authorId)}>
-            <div className="relative">
+            <div className={`relative ${post.authorInventory?.includes('profile_frame') ? 'p-1 bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 rounded-full animate-pulse shadow-lg' : ''}`}>
               <img 
                 src={post.authorPhotoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.authorId}`} 
                 alt="avatar" 
@@ -2019,8 +2038,11 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
               )}
             </div>
             <div>
-              <h3 className="font-black text-white group-hover/author:text-red-500 transition-colors text-lg tracking-tight leading-none mb-1">{post.authorName}</h3>
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest opacity-60">Publicado recientemente</p>
+              <div className="flex items-center gap-2">
+                <h3 className="font-black text-white group-hover/author:text-red-500 transition-colors text-lg tracking-tight leading-none">{post.authorName}</h3>
+                {post.authorInventory?.includes('badge_unique') && <Sparkles size={16} className="text-yellow-500 animate-bounce" />}
+              </div>
+              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest opacity-60 mt-1">Publicado recientemente</p>
             </div>
           </div>
           {(profile.role === 'admin' || post.authorId === profile.uid) && (
@@ -2140,11 +2162,11 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
 
 function ShopView({ profile, updateCoins, setError, setSuccessMessage }: { profile: User, updateCoins: (uid: string, amount: number) => Promise<void>, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
   const prizes = [
-    { id: 'badge_pro', name: 'Insignia Pro', description: 'Insignia dorada.', cost: 500, icon: '🏆' },
-    { id: 'theme_dark', name: 'Tema Premium', description: 'Colores exclusivos.', cost: 1000, icon: '🎨' },
-    { id: 'boost_post', name: 'Boost de Post', description: 'Llega a todos.', cost: 200, icon: '🚀' },
-    { id: 'ai_avatar', name: 'Avatar IA', description: 'Avatar único.', cost: 1500, icon: '🤖' },
-    { id: 'vip_access', name: 'Acceso VIP', description: '30 días VIP.', cost: 5000, icon: '💎' },
+    { id: 'badge_unique', name: 'Insignia Única', description: 'Una estrella dorada al lado de tu nombre.', cost: 300, icon: '⭐' },
+    { id: 'profile_frame', name: 'Marco de Perfil', description: 'Un borde brillante para tu foto de perfil.', cost: 500, icon: '🖼️' },
+    { id: 'theme_custom', name: 'Color de Interfaz', description: 'Cambia el color principal de tu aplicación.', cost: 1000, icon: '🎨' },
+    { id: 'user_list_access', name: 'Lista de Usuarios', description: 'Acceso a la lista completa de exploradores.', cost: 800, icon: '📋' },
+    { id: 'follow_request', name: 'Solicitud de Seguir', description: 'Sistema de seguimiento por aprobación.', cost: 400, icon: '🤝' },
   ];
 
   const handleBuy = async (prize: any) => {
@@ -2200,6 +2222,21 @@ function ShopView({ profile, updateCoins, setError, setSuccessMessage }: { profi
               <p className="text-zinc-500 font-medium text-[10px] md:text-xs leading-tight mb-4 line-clamp-2">{prize.description}</p>
             </div>
             <div className="flex flex-col gap-3 pt-3 border-t border-white/5">
+              {prize.id === 'theme_custom' && profile.inventory?.includes('theme_custom') && (
+                <div className="flex flex-wrap gap-2 mb-2 justify-center">
+                  {['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#ffffff', '#000000'].map(color => (
+                    <button 
+                      key={color}
+                      onClick={async () => {
+                        await updateDoc(doc(db, 'users', profile.uid), { themeColor: color });
+                        setSuccessMessage("Color de interfaz actualizado.");
+                      }}
+                      className={`w-6 h-6 rounded-full border-2 ${profile.themeColor === color ? 'border-white scale-110 shadow-lg' : 'border-white/20'}`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              )}
               <div className="flex items-center gap-1.5">
                 <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
                   <span className="text-[6px] font-black text-zinc-900">F</span>
@@ -2333,16 +2370,68 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
     return () => { unsubProfile(); unsubPosts(); unsubFollowers(); unsubFollowing(); };
   }, [uid, profile.uid]);
 
+  const [hasPendingRequest, setHasPendingRequest] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+
+  useEffect(() => {
+    const q = query(collection(db, 'follow_requests'), where('fromId', '==', profile.uid), where('toId', '==', uid), where('status', '==', 'pending'));
+    return onSnapshot(q, (snap) => setHasPendingRequest(!snap.empty));
+  }, [uid, profile.uid]);
+
+  useEffect(() => {
+    if (!isOwn) return;
+    const q = query(collection(db, 'follow_requests'), where('toId', '==', profile.uid), where('status', '==', 'pending'));
+    return onSnapshot(q, (snap) => setPendingRequests(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [isOwn, profile.uid]);
+
+  const handleAcceptRequest = async (req: any) => {
+    try {
+      await addDoc(collection(db, 'follows'), {
+        followerId: req.fromId,
+        followingId: profile.uid
+      });
+      await deleteDoc(doc(db, 'follow_requests', req.id));
+      setSuccessMessage("Solicitud aceptada.");
+    } catch (err: any) {
+      setError("Error: " + err.message);
+    }
+  };
+
+  const handleRejectRequest = async (req: any) => {
+    try {
+      await deleteDoc(doc(db, 'follow_requests', req.id));
+      setSuccessMessage("Solicitud rechazada.");
+    } catch (err: any) {
+      setError("Error: " + err.message);
+    }
+  };
+
   const handleFollow = async () => {
     if (isFollowing) {
       const q = query(collection(db, 'follows'), where('followerId', '==', profile.uid), where('followingId', '==', uid));
       const snap = await getDocs(q);
       snap.forEach(async (d) => await deleteDoc(doc(db, 'follows', d.id)));
     } else {
-      await addDoc(collection(db, 'follows'), {
-        followerId: profile.uid,
-        followingId: uid
-      });
+      if (targetProfile?.inventory?.includes('follow_request')) {
+        if (hasPendingRequest) {
+          setSuccessMessage("Ya has enviado una solicitud.");
+          return;
+        }
+        await addDoc(collection(db, 'follow_requests'), {
+          fromId: profile.uid,
+          fromName: profile.displayName,
+          fromPhoto: profile.photoURL,
+          toId: uid,
+          status: 'pending',
+          createdAt: serverTimestamp()
+        });
+        setSuccessMessage("Solicitud de seguimiento enviada.");
+      } else {
+        await addDoc(collection(db, 'follows'), {
+          followerId: profile.uid,
+          followingId: uid
+        });
+      }
     }
   };
 
@@ -2492,8 +2581,8 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
         <div className="px-10 pb-10 relative">
           <div className="absolute -top-24 left-10">
             <div className="relative group/avatar">
-              <div className="w-44 h-44 rounded-[3rem] border-8 border-zinc-900 bg-zinc-900 overflow-hidden shadow-2xl transition-transform group-hover/avatar:scale-105 duration-500">
-                <img src={targetProfile.photoURL} alt="profile" className="w-full h-full object-cover" />
+              <div className={`w-44 h-44 rounded-[3rem] border-8 border-zinc-900 bg-zinc-900 overflow-hidden shadow-2xl transition-transform group-hover/avatar:scale-105 duration-500 ${targetProfile.inventory?.includes('profile_frame') ? 'p-2 bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 animate-pulse' : ''}`}>
+                <img src={targetProfile.photoURL} alt="profile" className="w-full h-full object-cover rounded-[2.5rem]" />
               </div>
               {canEdit && (
                 <>
@@ -2509,7 +2598,8 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
           <div className="pt-28 flex flex-col md:flex-row md:items-end md:justify-between gap-8">
             <div className="flex-1">
               <div className="flex items-center gap-4">
-                <h1 className="text-3xl md:text-4xl font-black text-white tracking-tighter">{targetProfile.displayName}</h1>
+                <h1 className="text-2xl md:text-3xl font-black text-white tracking-tighter">{targetProfile.displayName}</h1>
+                {targetProfile.inventory?.includes('badge_unique') && <Sparkles size={28} className="text-yellow-500 animate-bounce" />}
                 {targetProfile.role === 'admin' && (
                   <div className="bg-red-600 text-white p-1.5 rounded-xl shadow-xl shadow-red-600/20" title="Administrador">
                     <ShieldCheck size={22} strokeWidth={3} />
@@ -2576,9 +2666,15 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
                 <div className="flex gap-3">
                   <button 
                     onClick={handleFollow}
-                    className={`px-10 py-4 rounded-[1.5rem] font-black text-sm transition-all shadow-xl active:scale-95 uppercase tracking-widest ${isFollowing ? 'bg-zinc-800 text-white border border-white/5 hover:bg-zinc-700' : 'bg-red-600 text-white hover:bg-red-700 shadow-red-600/20'}`}
+                    className={`px-10 py-4 rounded-[1.5rem] font-black text-sm transition-all shadow-xl active:scale-95 uppercase tracking-widest ${
+                      isFollowing 
+                      ? 'bg-zinc-800 text-white border border-white/5 hover:bg-zinc-700' 
+                      : hasPendingRequest
+                      ? 'bg-zinc-800 text-yellow-500 border border-yellow-500/20'
+                      : 'bg-red-600 text-white hover:bg-red-700 shadow-red-600/20'
+                    }`}
                   >
-                    {isFollowing ? 'Siguiendo' : 'Seguir'}
+                    {isFollowing ? 'Siguiendo' : hasPendingRequest ? 'Pendiente' : targetProfile?.inventory?.includes('follow_request') ? 'Solicitar' : 'Seguir'}
                   </button>
                   <button 
                     onClick={() => onMessageClick(uid)}
@@ -2590,6 +2686,43 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
               )}
             </div>
           </div>
+
+          {isOwn && pendingRequests.length > 0 && (
+            <div className="mt-12 bg-zinc-900/50 p-8 rounded-[2.5rem] border border-white/5">
+              <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <Users size={16} className="text-red-500" /> Solicitudes de Seguimiento
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {pendingRequests.map(req => (
+                  <div key={req.id} className="bg-zinc-800/80 backdrop-blur-xl p-4 rounded-2xl border border-white/10 flex items-center justify-between group hover:bg-zinc-700/80 transition-all">
+                    <div className="flex items-center gap-3">
+                      <img src={req.fromPhoto} alt="avatar" className="w-12 h-12 rounded-xl object-cover shadow-lg" />
+                      <div>
+                        <p className="font-black text-white text-sm tracking-tight">{req.fromName}</p>
+                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Quiere seguirte</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleAcceptRequest(req)} 
+                        className="p-3 bg-green-500/10 text-green-500 rounded-xl hover:bg-green-500 hover:text-white transition-all active:scale-90"
+                        title="Aceptar"
+                      >
+                        <Check size={20} strokeWidth={3} />
+                      </button>
+                      <button 
+                        onClick={() => handleRejectRequest(req)} 
+                        className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all active:scale-90"
+                        title="Rechazar"
+                      >
+                        <X size={20} strokeWidth={3} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           
           <div className="flex gap-6 mt-6 border-t border-white/5 pt-6">
             <button onClick={() => setShowList('followers')} className="group transition-all">
@@ -2711,12 +2844,12 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
 
       <AnimatePresence>
         {showList && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 z-[100]">
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start justify-center p-4 z-[100] overflow-y-auto pt-20">
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }} 
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-zinc-900 rounded-[2rem] w-full max-w-sm max-h-[60vh] overflow-hidden flex flex-col shadow-2xl border border-white/10"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }} 
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-zinc-900 rounded-[2rem] w-full max-w-sm overflow-hidden flex flex-col shadow-2xl border border-white/10 mb-20"
             >
               <div className="p-4 border-b border-white/5 flex justify-between items-center bg-zinc-800/50">
                 <h3 className="font-black text-lg text-white tracking-tighter uppercase">{showList === 'followers' ? 'Seguidores' : 'Siguiendo'}</h3>
@@ -2780,12 +2913,63 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
   );
 }
 
+// --- Users List View ---
+
+function UsersListView({ onUserClick }: { onUserClick: (uid: string) => void }) {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(collection(db, 'users'), orderBy('displayName', 'asc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      setUsers(snapshot.docs.map(doc => doc.data() as User).filter(u => !u.isDeleted));
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  if (loading) return <Loading />;
+
+  return (
+    <div className="max-w-4xl mx-auto p-4 md:p-8 pb-32">
+      <div className="mb-8">
+        <h1 className="text-4xl font-black text-white tracking-tighter uppercase">Exploradores</h1>
+        <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px] mt-2">Comunidad FoxBlack</p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {users.map(u => (
+          <motion.div 
+            key={u.uid} 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={() => onUserClick(u.uid)}
+            className="bg-zinc-900/80 backdrop-blur-xl p-5 rounded-[2rem] border border-white/10 flex items-center gap-5 cursor-pointer hover:bg-zinc-800 transition-all group shadow-xl"
+          >
+            <div className={`relative ${u.inventory?.includes('profile_frame') ? 'p-1 bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 rounded-2xl animate-pulse' : ''}`}>
+              <img src={u.photoURL} alt="avatar" className="w-14 h-14 rounded-xl object-cover shadow-2xl group-hover:scale-105 transition-transform" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-black text-white text-lg tracking-tight group-hover:text-red-500 transition-colors">{u.displayName}</p>
+                {u.inventory?.includes('badge_unique') && <Sparkles size={16} className="text-yellow-500 animate-bounce" />}
+              </div>
+              <p className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">{u.role === 'admin' ? 'Administrador' : 'Explorador'}</p>
+            </div>
+            <ArrowRight size={20} className="ml-auto text-zinc-700 group-hover:text-white group-hover:translate-x-1 transition-all" />
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // --- Admin Users View ---
 
 function AdminUsersView({ onUserClick, setError, setSuccessMessage }: { onUserClick: (uid: string) => void, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [customCoins, setCustomCoins] = useState<{ [uid: string]: string }>({});
 
   useEffect(() => {
     const q = query(collection(db, 'users'), orderBy('displayName', 'asc'));
@@ -2863,19 +3047,45 @@ function AdminUsersView({ onUserClick, setError, setSuccessMessage }: { onUserCl
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex items-center bg-zinc-800 rounded-2xl p-1 border border-white/5">
+                <input 
+                  type="number" 
+                  placeholder="Cantidad" 
+                  className="w-24 bg-transparent border-none outline-none text-white px-4 font-black text-xs"
+                  value={customCoins[u.uid] || ''}
+                  onChange={(e) => setCustomCoins({ ...customCoins, [u.uid]: e.target.value })}
+                />
+                <button 
+                  onClick={async () => {
+                    const amount = parseInt(customCoins[u.uid]);
+                    if (isNaN(amount)) return;
+                    try {
+                      await updateDoc(doc(db, 'users', u.uid), { coins: (u.coins || 0) + amount });
+                      setSuccessMessage(`Se han otorgado ${amount} FoxCoins a ${u.displayName}`);
+                      setCustomCoins({ ...customCoins, [u.uid]: '' });
+                    } catch (err: any) {
+                      setError("Error: " + err.message);
+                    }
+                  }}
+                  className="px-4 py-3 bg-yellow-500 text-zinc-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-yellow-400 transition-all active:scale-95"
+                >
+                  Asignar
+                </button>
+              </div>
               <button 
                 onClick={async () => {
+                  if (!window.confirm(`¿Resetear inventario de ${u.displayName}?`)) return;
                   try {
-                    await updateDoc(doc(db, 'users', u.uid), { coins: (u.coins || 0) + 1000 });
-                    setSuccessMessage(`Se han otorgado 1000 FoxCoins a ${u.displayName}`);
+                    await updateDoc(doc(db, 'users', u.uid), { inventory: [], themeColor: null });
+                    setSuccessMessage(`Inventario de ${u.displayName} reseteado.`);
                   } catch (err: any) {
                     setError("Error: " + err.message);
                   }
                 }}
-                className="flex-1 md:flex-none px-6 py-4 bg-yellow-500 text-zinc-900 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/20 active:scale-95"
+                className="px-6 py-4 bg-zinc-800 text-zinc-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-zinc-700 hover:text-white transition-all border border-white/5 active:scale-95"
               >
-                +1000 Coins
+                Reset Inv
               </button>
               <button 
                 onClick={() => handleResetPassword(u.email)}
