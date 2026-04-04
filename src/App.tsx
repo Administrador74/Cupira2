@@ -161,9 +161,9 @@ export default function App() {
           const msg = change.doc.data() as Message;
           // Solo notificar si el mensaje es nuevo (después de cargar la app)
           if (msg.createdAt && msg.createdAt.toMillis() > startTime) {
-            if (Notification.permission === "granted" && document.hidden) {
+            if (Notification.permission === "granted") {
               new Notification("Nuevo Mensaje en Cupira", {
-                body: msg.content,
+                body: msg.content || "📷 Foto",
                 icon: "/favicon.ico"
               });
             }
@@ -191,7 +191,7 @@ export default function App() {
           if (change.type === "added") {
             const post = change.doc.data() as Post;
             if (post.createdAt && post.createdAt.toMillis() > startTime) {
-              if (Notification.permission === "granted" && document.hidden) {
+              if (Notification.permission === "granted") {
                 new Notification("Nueva Publicación", {
                   body: `${post.authorName} ha compartido algo nuevo.`,
                   icon: "/favicon.ico"
@@ -1140,6 +1140,8 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const effectiveProfileId = adminViewIds ? adminViewIds.u1 : profile.uid;
   const effectiveTargetId = adminViewIds ? adminViewIds.u2 : targetId;
@@ -1208,6 +1210,48 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
 
     return () => { unsub1(); unsub2(); unsub3(); };
   }, [effectiveProfileId, effectiveTargetId]);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validar tamaño (máximo 1MB para base64 en Firestore)
+    if (file.size > 1024 * 1024) {
+      setError("La imagen es demasiado grande. El límite es 1MB.");
+      return;
+    }
+
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result as string;
+      try {
+        const convId = [effectiveProfileId, effectiveTargetId].sort().join('_');
+        await addDoc(collection(db, 'messages'), {
+          senderId: profile.uid,
+          receiverId: adminViewIds ? effectiveTargetId : targetId,
+          conversationId: convId,
+          content: '',
+          imageURL: base64String,
+          createdAt: serverTimestamp(),
+          read: false,
+          deletedByAdmin: false
+        });
+
+        await setDoc(doc(db, 'conversations', convId), {
+          participants: [effectiveProfileId, effectiveTargetId],
+          lastMessage: '📷 Foto',
+          lastTimestamp: serverTimestamp(),
+        }, { merge: true });
+
+        setIsUploading(false);
+      } catch (err: any) {
+        setError("Error al enviar imagen: " + err.message);
+        setIsUploading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1313,26 +1357,39 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
                     <span className="italic">{msg.content || 'Este mensaje fue eliminado por un administrador'}</span>
                   </div>
                 ) : (
-                  msg.content
+                  <>
+                    {msg.imageURL && (
+                      <img 
+                        src={msg.imageURL} 
+                        alt="Imagen enviada" 
+                        className="rounded-2xl max-w-full mb-2 shadow-lg border border-white/10"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                    {msg.content}
+                  </>
                 )}
                 
-                {profile.role === 'admin' && (
+                {(profile.role === 'admin' || isMe) && (
                   <button 
                     onClick={async () => {
-                      if (!window.confirm("¿Estás seguro de eliminar este mensaje por completo de la base de datos? Esta acción no se puede deshacer.")) return;
+                      const confirmMsg = profile.role === 'admin' 
+                        ? "¿Estás seguro de eliminar este mensaje por completo de la base de datos? Esta acción no se puede deshacer."
+                        : "¿Quieres eliminar este mensaje?";
+                      if (!window.confirm(confirmMsg)) return;
                       try {
                         const convId = [effectiveProfileId, effectiveTargetId].sort().join('_');
                         await deleteDoc(doc(db, 'messages', msg.id));
-                        // También actualizamos la vista previa de la conversación para que no se vea el contenido prohibido
+                        // También actualizamos la vista previa de la conversación
                         await updateDoc(doc(db, 'conversations', convId), {
-                          lastMessage: '[Mensaje eliminado por el administrador]'
+                          lastMessage: '[Mensaje eliminado]'
                         });
                       } catch (err: any) {
                         setError("Error al eliminar mensaje: " + err.message);
                       }
                     }}
-                    className="absolute -top-2 -right-2 bg-zinc-800 text-red-500 p-2 rounded-full shadow-xl transition-all hover:bg-red-600 hover:text-white border border-white/10"
-                    title="Eliminar mensaje por completo"
+                    className={`absolute -top-2 -right-2 bg-zinc-800 p-2 rounded-full shadow-xl transition-all hover:bg-red-600 hover:text-white border border-white/10 ${isMe && profile.role !== 'admin' ? 'text-zinc-400' : 'text-red-500'}`}
+                    title="Eliminar mensaje"
                   >
                     <Trash2 size={14} strokeWidth={3} />
                   </button>
@@ -1346,24 +1403,45 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds }: { pr
 
       {/* Input */}
       {(profile.role === 'admin' || !adminViewIds) && (
-        <form onSubmit={handleSend} className="p-8 bg-zinc-900 border-t border-white/5 flex gap-4">
-          <input 
-            type="text" 
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder={adminViewIds ? "Intervenir en el chat..." : "Escribe un mensaje..."}
-            className={`flex-1 bg-zinc-800/50 border-2 border-transparent rounded-[1.5rem] px-6 py-4 text-sm font-black text-white focus:bg-zinc-800 focus:ring-4 outline-none transition-all placeholder:text-zinc-600 ${
-              adminViewIds ? 'focus:border-blue-500/20 focus:ring-blue-500/5' : 'focus:border-red-500/20 focus:ring-red-500/5'
-            }`}
-          />
-          <button 
-            type="submit"
-            disabled={!newMessage.trim()}
-            className={`${adminViewIds ? 'bg-blue-600 shadow-blue-600/20 hover:bg-blue-700' : 'bg-red-600 shadow-red-600/20 hover:bg-red-700'} text-white p-4 rounded-[1.5rem] shadow-2xl transition-all disabled:opacity-30 disabled:shadow-none active:scale-90`}
-          >
-            <Send size={24} strokeWidth={3} />
-          </button>
-        </form>
+        <div className="p-8 bg-zinc-900 border-t border-white/5">
+          <form onSubmit={handleSend} className="flex gap-4 items-center">
+            <input 
+              type="file" 
+              accept="image/*" 
+              ref={fileInputRef} 
+              onChange={handleImageUpload} 
+              className="hidden" 
+            />
+            <button 
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="p-4 bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-[1.5rem] transition-all disabled:opacity-50"
+            >
+              {isUploading ? (
+                <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Camera size={24} strokeWidth={3} />
+              )}
+            </button>
+            <input 
+              type="text" 
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder={adminViewIds ? "Intervenir en el chat..." : "Escribe un mensaje..."}
+              className={`flex-1 bg-zinc-800/50 border-2 border-transparent rounded-[1.5rem] px-6 py-4 text-sm font-black text-white focus:bg-zinc-800 focus:ring-4 outline-none transition-all placeholder:text-zinc-600 ${
+                adminViewIds ? 'focus:border-blue-500/20 focus:ring-blue-500/5' : 'focus:border-red-500/20 focus:ring-red-500/5'
+              }`}
+            />
+            <button 
+              type="submit"
+              disabled={!newMessage.trim()}
+              className={`${adminViewIds ? 'bg-blue-600 shadow-blue-600/20 hover:bg-blue-700' : 'bg-red-600 shadow-red-600/20 hover:bg-red-700'} text-white p-4 rounded-[1.5rem] shadow-2xl transition-all disabled:opacity-30 disabled:shadow-none active:scale-90`}
+            >
+              <Send size={24} strokeWidth={3} />
+            </button>
+          </form>
+        </div>
       )}
       {!adminViewIds && profile.role !== 'admin' && false && (
         <div className="p-8 bg-zinc-900 border-t border-white/5 text-center">
@@ -1395,6 +1473,28 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin }: { setView: (v
         >
           <Users className="text-white" size={32} strokeWidth={3} />
         </motion.div>
+        
+        {/* Botón de Notificaciones */}
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => {
+            if ("Notification" in window) {
+              Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                  new Notification("¡Notificaciones Activadas!", {
+                    body: "Ahora recibirás avisos de nuevos mensajes y publicaciones.",
+                    icon: "/favicon.ico"
+                  });
+                }
+              });
+            }
+          }}
+          className="w-12 h-12 bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white transition-colors border border-white/5"
+          title="Activar Notificaciones"
+        >
+          <PlusCircle size={24} />
+        </motion.button>
       </div>
       {items.map((item) => (
         <button 

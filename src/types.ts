@@ -45,6 +45,7 @@ export interface Message {
   read?: boolean;
   deletedByAdmin?: boolean;
   conversationId?: string;
+  imageURL?: string;
 }
 
 export interface Conversation {
