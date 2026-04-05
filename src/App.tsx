@@ -3685,15 +3685,15 @@ function UsersListView({ onUserClick }: { onUserClick: (uid: string) => void }) 
 // --- Admin Users View ---
 
 const PETS = [
-  { id: 'pet_bunny', name: 'Conejito', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/8604856f-656f-40e1-88f2-89587f7a635a.png', cost: 100, currency: 'diamonds', description: 'Una tierna mascota que te acompaña.' },
-  { id: 'pet_blue', name: 'Cinnamoroll', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/14101e69-0521-4993-9467-96a943a50239.png', cost: 100, currency: 'diamonds', description: 'Dulce y esponjosa compañía azul.' },
-  { id: 'pet_rainbow', name: 'Gatito Arcoíris', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/972688f9-4d9f-4315-9921-2771761612e4.png', cost: 150, currency: 'diamonds', description: 'Brilla con todos los colores.' },
-  { id: 'pet_strawberry', name: 'Gatito Fresa', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/33499440-230f-48e0-a7d1-04279093226a.png', cost: 150, currency: 'diamonds', description: 'Tan dulce como una fresa.' },
-  { id: 'pet_shark_boy', name: 'Tiburón Boy', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/87a99602-0941-4712-9c42-2b6228308876.png', cost: 200, currency: 'diamonds', description: 'El rey del océano en tu pantalla.' },
-  { id: 'pet_devil_boy', name: 'Diablillo Boy', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/69866879-1300-4786-905c-3738596659c0.png', cost: 200, currency: 'diamonds', description: 'Un toque travieso y elegante.' },
-  { id: 'pet_devil_girl', name: 'Diablilla Girl', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/2680879f-067d-4171-9257-817865809117.png', cost: 200, currency: 'diamonds', description: 'Poderosa y misteriosa.' },
-  { id: 'pet_shark_girl', name: 'Tiburón Girl', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/e045a794-6880-4573-8902-18451f211322.png', cost: 200, currency: 'diamonds', description: 'Valiente exploradora marina.' },
-  { id: 'pet_pink_cat', name: 'Gatito Rosa', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/76866879-1300-4786-905c-3738596659c0.png', cost: 150, currency: 'diamonds', description: 'La ternura hecha mascota.' },
+  { id: 'pet_bunny', name: 'Conejito', image: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Bunny', cost: 100, currency: 'diamonds', description: 'Una tierna mascota que te acompaña.' },
+  { id: 'pet_blue', name: 'Cinnamoroll', image: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Blue', cost: 100, currency: 'diamonds', description: 'Dulce y esponjosa compañía azul.' },
+  { id: 'pet_rainbow', name: 'Gatito Arcoíris', image: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Rainbow', cost: 150, currency: 'diamonds', description: 'Brilla con todos los colores.' },
+  { id: 'pet_strawberry', name: 'Gatito Fresa', image: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Strawberry', cost: 150, currency: 'diamonds', description: 'Tan dulce como una fresa.' },
+  { id: 'pet_shark_boy', name: 'Tiburón Boy', image: 'https://api.dicebear.com/7.x/adventurer/svg?seed=SharkBoy', cost: 200, currency: 'diamonds', description: 'El rey del océano en tu pantalla.' },
+  { id: 'pet_devil_boy', name: 'Diablillo Boy', image: 'https://api.dicebear.com/7.x/adventurer/svg?seed=DevilBoy', cost: 200, currency: 'diamonds', description: 'Un toque travieso y elegante.' },
+  { id: 'pet_devil_girl', name: 'Diablilla Girl', image: 'https://api.dicebear.com/7.x/adventurer/svg?seed=DevilGirl', cost: 200, currency: 'diamonds', description: 'Poderosa y misteriosa.' },
+  { id: 'pet_shark_girl', name: 'Tiburón Girl', image: 'https://api.dicebear.com/7.x/adventurer/svg?seed=SharkGirl', cost: 200, currency: 'diamonds', description: 'Valiente exploradora marina.' },
+  { id: 'pet_pink_cat', name: 'Gatito Rosa', image: 'https://api.dicebear.com/7.x/adventurer/svg?seed=PinkCat', cost: 150, currency: 'diamonds', description: 'La ternura hecha mascota.' },
 ];
 
 function PetDisplay({ petId }: { petId: string }) {
@@ -3703,31 +3703,56 @@ function PetDisplay({ petId }: { petId: string }) {
   return (
     <motion.div
       drag
-      dragConstraints={{ left: -100, right: 100, top: -100, bottom: 100 }}
-      initial={{ opacity: 0, scale: 0.5 }}
+      dragConstraints={{ left: -150, right: 150, top: -150, bottom: 150 }}
+      initial={{ opacity: 0, scale: 0.5, x: 100 }}
       animate={{ 
         opacity: 1, 
         scale: 1,
-        y: [0, -10, 0],
+        x: 0,
+        y: [0, -15, 0],
+        rotate: [-2, 2, -2],
       }}
       transition={{
         y: {
-          duration: 3,
+          duration: 4,
           repeat: Infinity,
           ease: "easeInOut"
-        }
+        },
+        rotate: {
+          duration: 5,
+          repeat: Infinity,
+          ease: "easeInOut"
+        },
+        opacity: { duration: 0.5 },
+        scale: { type: "spring", stiffness: 300, damping: 20 }
       }}
-      className="fixed bottom-24 right-8 z-50 cursor-grab active:cursor-grabbing"
+      className="fixed bottom-24 right-8 z-50 cursor-grab active:cursor-grabbing select-none"
     >
       <div className="relative group">
-        <img 
-          src={pet.image} 
-          alt={pet.name} 
-          className="w-24 h-24 md:w-32 md:h-32 object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
-          referrerPolicy="no-referrer"
-        />
-        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-xl pointer-events-none">
-          <span className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">{pet.name}</span>
+        <motion.div
+          animate={{
+            scale: [1, 1.05, 1],
+          }}
+          transition={{
+            duration: 3,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="relative"
+        >
+          <img 
+            src={pet.image} 
+            alt={pet.name} 
+            className="w-28 h-28 md:w-36 md:h-36 object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.3)] filter hover:brightness-110 transition-all"
+            referrerPolicy="no-referrer"
+          />
+          {/* Shadow effect on floor */}
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-16 h-2 bg-black/20 blur-md rounded-full" />
+        </motion.div>
+        
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-zinc-900/90 backdrop-blur-xl border border-white/10 px-4 py-1.5 rounded-2xl opacity-0 group-hover:opacity-100 transition-all shadow-2xl pointer-events-none whitespace-nowrap">
+          <p className="text-[10px] font-black text-white uppercase tracking-[0.2em]">{pet.name}</p>
+          <p className="text-[8px] font-bold text-zinc-500 uppercase text-center">¡Hola! ✨</p>
         </div>
       </div>
     </motion.div>
