@@ -13,6 +13,7 @@ export interface User {
   inventory?: string[];
   isDeleted?: boolean;
   themeColor?: string;
+  activePet?: string;
   dailyPlays?: {
     lastDate: string;
     luck: number;

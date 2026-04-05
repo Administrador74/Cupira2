@@ -472,19 +472,19 @@ export default function App() {
                   <img src={profile.photoURL} alt="avatar" className="w-10 h-10 rounded-xl border border-white/10 shadow-lg" />
                 </div>
                 
-                <div className="flex flex-1 justify-end gap-2 overflow-x-auto no-scrollbar">
-                  <div className="flex items-center gap-2 bg-yellow-500/10 px-4 py-2 rounded-2xl border border-yellow-500/20 shadow-lg shadow-yellow-500/5 whitespace-nowrap">
-                    <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-inner">
-                      <span className="text-[10px] font-black text-zinc-900">F</span>
+                <div className="flex flex-1 justify-end gap-3">
+                  <div className="flex items-center gap-1.5 bg-zinc-800/50 px-3 py-1.5 rounded-full border border-white/5">
+                    <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                      <span className="text-[8px] font-black text-zinc-900">F</span>
                     </div>
-                    <span className="text-sm font-black text-yellow-500 tracking-tighter">{profile.coins || 0} CupiraCoins</span>
+                    <span className="text-xs font-black text-white">{profile.coins || 0}</span>
                   </div>
 
-                  <div className="flex items-center gap-2 bg-cyan-500/10 px-4 py-2 rounded-2xl border border-cyan-500/20 shadow-lg shadow-cyan-500/5 whitespace-nowrap">
-                    <div className="w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center shadow-inner">
-                      <span className="text-[10px] font-black text-zinc-900">D</span>
+                  <div className="flex items-center gap-1.5 bg-zinc-800/50 px-3 py-1.5 rounded-full border border-white/5">
+                    <div className="w-5 h-5 bg-cyan-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                      <span className="text-[8px] font-black text-zinc-900">D</span>
                     </div>
-                    <span className="text-sm font-black text-cyan-500 tracking-tighter">{profile.diamonds || 0} DiamantesCoint</span>
+                    <span className="text-xs font-black text-white">{profile.diamonds || 0}</span>
                   </div>
                 </div>
               </div>
@@ -519,6 +519,8 @@ export default function App() {
                   )}
                 </motion.div>
               </AnimatePresence>
+
+              {profile.activePet && <PetDisplay petId={profile.activePet} />}
             </main>
             <AnimatePresence>
               {chatTargetId && profile && (
@@ -2616,12 +2618,11 @@ function GamesView({ profile, updateCoins, updateDiamonds, setError, setSuccessM
     } else {
       setPlaying(false);
       await incrementPlays('trivia');
-      const finalWin = newScore >= 7;
-      const coinReward = finalWin ? 2 : -2;
+      const coinReward = newScore * 2;
       await updateCoins(profile.uid, coinReward);
       setResult({ 
-        win: finalWin, 
-        message: `Ronda terminada. Puntuación: ${newScore}/10. ${coinReward >= 0 ? '+' : ''}${coinReward} CupiraCoins` 
+        win: newScore > 0, 
+        message: `Ronda terminada. Puntuación: ${newScore}/10. ¡Has ganado ${coinReward} CupiraCoins! 🦊` 
       });
     }
   };
@@ -2813,6 +2814,7 @@ function ShopView({ profile, updateCoins, updateDiamonds, setError, setSuccessMe
     { id: 'follow_request', name: 'Solicitud de Seguir', description: 'Sistema de seguimiento por aprobación.', cost: 400, icon: '🤝', currency: 'coins' },
     { id: 'diamond_pack_1', name: 'Pack 10 Diamantes', description: 'DiamantesCoint para funciones exclusivas.', cost: 5000, icon: '💎', currency: 'coins' },
     { id: 'premium_status', name: 'Estatus Diamante', description: 'Acceso total a la versión paga de CupiraApp.', cost: 50, icon: '💠', currency: 'diamonds' },
+    ...PETS.map(p => ({ ...p, icon: <img src={p.image} className="w-12 h-12 object-contain mx-auto" referrerPolicy="no-referrer" /> })),
   ];
 
   const handleBuy = async (prize: any) => {
@@ -2824,6 +2826,18 @@ function ShopView({ profile, updateCoins, updateDiamonds, setError, setSuccessMe
     }
 
     if (profile.inventory?.includes(prize.id) && prize.id !== 'diamond_pack_1') {
+      // If it's a pet, allow equipping/unequipping it
+      if (prize.id.startsWith('pet_')) {
+        try {
+          const newPet = profile.activePet === prize.id ? null : prize.id;
+          await updateDoc(doc(db, 'users', profile.uid), { activePet: newPet });
+          setSuccessMessage(newPet ? `¡Has equipado a ${prize.name}!` : `Has desequipado a ${prize.name}`);
+          return;
+        } catch (err: any) {
+          setError("Error al gestionar mascota: " + err.message);
+          return;
+        }
+      }
       setError("Ya has desbloqueado este premio.");
       return;
     }
@@ -2841,9 +2855,15 @@ function ShopView({ profile, updateCoins, updateDiamonds, setError, setSuccessMe
         return; // Don't add to inventory
       }
 
-      await updateDoc(doc(db, 'users', profile.uid), {
+      const updates: any = {
         inventory: arrayUnion(prize.id)
-      });
+      };
+
+      if (prize.id.startsWith('pet_')) {
+        updates.activePet = prize.id;
+      }
+
+      await updateDoc(doc(db, 'users', profile.uid), updates);
       setSuccessMessage(`¡Felicidades! Has desbloqueado: ${prize.name}`);
     } catch (err: any) {
       console.error("Error buying prize:", err);
@@ -2941,7 +2961,9 @@ function ShopView({ profile, updateCoins, updateDiamonds, setError, setSuccessMe
                   : 'bg-white text-zinc-900 hover:bg-red-500 hover:text-white'
                 }`}
               >
-                {profile.inventory?.includes(prize.id) && prize.id !== 'diamond_pack_1' ? 'OK' : 'Canjear'}
+                {profile.inventory?.includes(prize.id) && prize.id !== 'diamond_pack_1' ? (
+                  prize.id.startsWith('pet_') ? (profile.activePet === prize.id ? 'Desequipar' : 'Equipar') : 'OK'
+                ) : 'Canjear'}
               </button>
             </div>
           </motion.div>
@@ -3661,6 +3683,56 @@ function UsersListView({ onUserClick }: { onUserClick: (uid: string) => void }) 
 }
 
 // --- Admin Users View ---
+
+const PETS = [
+  { id: 'pet_bunny', name: 'Conejito', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/8604856f-656f-40e1-88f2-89587f7a635a.png', cost: 100, currency: 'diamonds', description: 'Una tierna mascota que te acompaña.' },
+  { id: 'pet_blue', name: 'Cinnamoroll', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/14101e69-0521-4993-9467-96a943a50239.png', cost: 100, currency: 'diamonds', description: 'Dulce y esponjosa compañía azul.' },
+  { id: 'pet_rainbow', name: 'Gatito Arcoíris', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/972688f9-4d9f-4315-9921-2771761612e4.png', cost: 150, currency: 'diamonds', description: 'Brilla con todos los colores.' },
+  { id: 'pet_strawberry', name: 'Gatito Fresa', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/33499440-230f-48e0-a7d1-04279093226a.png', cost: 150, currency: 'diamonds', description: 'Tan dulce como una fresa.' },
+  { id: 'pet_shark_boy', name: 'Tiburón Boy', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/87a99602-0941-4712-9c42-2b6228308876.png', cost: 200, currency: 'diamonds', description: 'El rey del océano en tu pantalla.' },
+  { id: 'pet_devil_boy', name: 'Diablillo Boy', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/69866879-1300-4786-905c-3738596659c0.png', cost: 200, currency: 'diamonds', description: 'Un toque travieso y elegante.' },
+  { id: 'pet_devil_girl', name: 'Diablilla Girl', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/2680879f-067d-4171-9257-817865809117.png', cost: 200, currency: 'diamonds', description: 'Poderosa y misteriosa.' },
+  { id: 'pet_shark_girl', name: 'Tiburón Girl', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/e045a794-6880-4573-8902-18451f211322.png', cost: 200, currency: 'diamonds', description: 'Valiente exploradora marina.' },
+  { id: 'pet_pink_cat', name: 'Gatito Rosa', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/76866879-1300-4786-905c-3738596659c0.png', cost: 150, currency: 'diamonds', description: 'La ternura hecha mascota.' },
+];
+
+function PetDisplay({ petId }: { petId: string }) {
+  const pet = PETS.find(p => p.id === petId);
+  if (!pet) return null;
+
+  return (
+    <motion.div
+      drag
+      dragConstraints={{ left: -100, right: 100, top: -100, bottom: 100 }}
+      initial={{ opacity: 0, scale: 0.5 }}
+      animate={{ 
+        opacity: 1, 
+        scale: 1,
+        y: [0, -10, 0],
+      }}
+      transition={{
+        y: {
+          duration: 3,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }
+      }}
+      className="fixed bottom-24 right-8 z-50 cursor-grab active:cursor-grabbing"
+    >
+      <div className="relative group">
+        <img 
+          src={pet.image} 
+          alt={pet.name} 
+          className="w-24 h-24 md:w-32 md:h-32 object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+          referrerPolicy="no-referrer"
+        />
+        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-xl pointer-events-none">
+          <span className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">{pet.name}</span>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 function AdminUsersView({ onUserClick, setError, setSuccessMessage }: { onUserClick: (uid: string) => void, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
   const [searchTerm, setSearchTerm] = useState('');
