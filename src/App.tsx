@@ -470,24 +470,22 @@ export default function App() {
               <div className="flex items-center justify-between mb-8 bg-zinc-900/40 backdrop-blur-xl p-4 rounded-[2rem] border border-white/5">
                 <div className="flex items-center gap-4">
                   <img src={profile.photoURL} alt="avatar" className="w-10 h-10 rounded-xl border border-white/10 shadow-lg" />
-                  <div>
-                    <h2 className="text-sm font-black text-white tracking-tight leading-none">{profile.displayName}</h2>
-                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">{profile.role === 'admin' ? 'Administrador' : 'Explorador'}</p>
-                  </div>
                 </div>
                 
-                <div className="flex items-center gap-2 bg-yellow-500/10 px-4 py-2 rounded-2xl border border-yellow-500/20 shadow-lg shadow-yellow-500/5">
-                  <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-inner">
-                    <span className="text-[10px] font-black text-zinc-900">F</span>
+                <div className="flex flex-1 justify-end gap-2 overflow-x-auto no-scrollbar">
+                  <div className="flex items-center gap-2 bg-yellow-500/10 px-4 py-2 rounded-2xl border border-yellow-500/20 shadow-lg shadow-yellow-500/5 whitespace-nowrap">
+                    <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-inner">
+                      <span className="text-[10px] font-black text-zinc-900">F</span>
+                    </div>
+                    <span className="text-sm font-black text-yellow-500 tracking-tighter">{profile.coins || 0} CupiraCoins</span>
                   </div>
-                  <span className="text-sm font-black text-yellow-500 tracking-tighter">{profile.coins || 0} CupiraCoins</span>
-                </div>
 
-                <div className="flex items-center gap-2 bg-cyan-500/10 px-4 py-2 rounded-2xl border border-cyan-500/20 shadow-lg shadow-cyan-500/5">
-                  <div className="w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center shadow-inner">
-                    <span className="text-[10px] font-black text-zinc-900">D</span>
+                  <div className="flex items-center gap-2 bg-cyan-500/10 px-4 py-2 rounded-2xl border border-cyan-500/20 shadow-lg shadow-cyan-500/5 whitespace-nowrap">
+                    <div className="w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center shadow-inner">
+                      <span className="text-[10px] font-black text-zinc-900">D</span>
+                    </div>
+                    <span className="text-sm font-black text-cyan-500 tracking-tighter">{profile.diamonds || 0} DiamantesCoint</span>
                   </div>
-                  <span className="text-sm font-black text-cyan-500 tracking-tighter">{profile.diamonds || 0} DiamantesCoint</span>
                 </div>
               </div>
 
@@ -2497,8 +2495,10 @@ function GamesView({ profile, updateCoins, updateDiamonds, setError, setSuccessM
       return true; // New day, reset happens on update
     }
     
-    if (stats[gameId] >= 3) {
-      setError(`Has alcanzado el límite de 3 partidas diarias para este juego. 🦊`);
+    const limit = gameId === 'trivia' ? 10 : 3;
+    
+    if (stats[gameId] >= limit) {
+      setError(`Has alcanzado el límite de ${limit} partidas diarias para este juego. 🦊`);
       return false;
     }
     return true;
@@ -2529,9 +2529,9 @@ function GamesView({ profile, updateCoins, updateDiamonds, setError, setSuccessM
     setPlaying(false);
     await incrementPlays('luck');
     const outcomes = [
-      { win: true, amount: 100, msg: "¡Increíble! Encontraste el tesoro real. +100 CupiraCoins" },
+      { win: true, amount: 2, msg: "¡Increíble! Encontraste el tesoro real. +2 CupiraCoins" },
       { win: false, amount: 0, msg: "El cofre estaba vacío... Mejor suerte la próxima." },
-      { win: false, amount: -50, msg: "¡Oh no! Era una trampa. -50 CupiraCoins" }
+      { win: false, amount: -2, msg: "¡Oh no! Era una trampa. -2 CupiraCoins" }
     ];
     const outcome = outcomes[gameState.chests[idx]];
     await updateCoins(profile.uid, outcome.amount);
@@ -2574,11 +2574,11 @@ function GamesView({ profile, updateCoins, updateDiamonds, setError, setSuccessM
       const isCorrect = newUserSeq.every((e, i) => e === gameState.sequence[i]);
       
       if (isCorrect) {
-        await updateCoins(profile.uid, 60);
-        setResult({ win: true, message: "¡Memoria perfecta! +60 CupiraCoins" });
+        await updateCoins(profile.uid, 2);
+        setResult({ win: true, message: "¡Memoria perfecta! +2 CupiraCoins" });
       } else {
-        await updateCoins(profile.uid, -30);
-        setResult({ win: false, message: "Secuencia incorrecta. -30 CupiraCoins" });
+        await updateCoins(profile.uid, -2);
+        setResult({ win: false, message: "Secuencia incorrecta. -2 CupiraCoins" });
       }
     }
   };
@@ -2617,7 +2617,7 @@ function GamesView({ profile, updateCoins, updateDiamonds, setError, setSuccessM
       setPlaying(false);
       await incrementPlays('trivia');
       const finalWin = newScore >= 7;
-      const coinReward = newScore * 10 - (10 - newScore) * 5;
+      const coinReward = finalWin ? 2 : -2;
       await updateCoins(profile.uid, coinReward);
       setResult({ 
         win: finalWin, 
@@ -2646,9 +2646,9 @@ function GamesView({ profile, updateCoins, updateDiamonds, setError, setSuccessM
       {!activeGame ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
-            { id: 'luck', name: 'Cofres de Suerte', icon: '🎁', desc: 'Elige un cofre de color.', plays: stats.luck, start: startLuckGame },
-            { id: 'memory', name: 'Emoji Memory', icon: '🧠', desc: 'Repite la secuencia.', plays: stats.memory, start: startMemoryGame },
-            { id: 'trivia', name: 'Trivia Veloz', icon: '⚡', desc: '150+ preguntas difíciles.', plays: stats.trivia, start: startTriviaGame }
+            { id: 'luck', name: 'Cofres de Suerte', icon: '🎁', desc: 'Elige un cofre de color.', plays: stats.luck, limit: 3, start: startLuckGame },
+            { id: 'memory', name: 'Emoji Memory', icon: '🧠', desc: 'Repite la secuencia.', plays: stats.memory, limit: 3, start: startMemoryGame },
+            { id: 'trivia', name: 'Trivia Veloz', icon: '⚡', desc: '150+ preguntas difíciles.', plays: stats.trivia, limit: 10, start: startTriviaGame }
           ].map(game => (
             <motion.button
               key={game.id}
@@ -2658,7 +2658,7 @@ function GamesView({ profile, updateCoins, updateDiamonds, setError, setSuccessM
               className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/10 text-center group hover:bg-zinc-800/80 transition-all relative"
             >
               <div className="absolute top-4 right-4 bg-zinc-800 px-2 py-1 rounded-lg text-[8px] font-black text-zinc-400">
-                {game.plays}/3 HOY
+                {game.plays}/{game.limit} HOY
               </div>
               <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">{game.icon}</div>
               <h3 className="text-lg font-black text-white mb-2">{game.name}</h3>
@@ -2823,7 +2823,7 @@ function ShopView({ profile, updateCoins, updateDiamonds, setError, setSuccessMe
       return;
     }
 
-    if (profile.inventory?.includes(prize.id)) {
+    if (profile.inventory?.includes(prize.id) && prize.id !== 'diamond_pack_1') {
       setError("Ya has desbloqueado este premio.");
       return;
     }
@@ -2837,6 +2837,8 @@ function ShopView({ profile, updateCoins, updateDiamonds, setError, setSuccessMe
 
       if (prize.id === 'diamond_pack_1') {
         await updateDiamonds(profile.uid, 10);
+        setSuccessMessage(`¡Has comprado 10 DiamantesCoint!`);
+        return; // Don't add to inventory
       }
 
       await updateDoc(doc(db, 'users', profile.uid), {
@@ -2932,14 +2934,14 @@ function ShopView({ profile, updateCoins, updateDiamonds, setError, setSuccessMe
               </div>
               <button 
                 onClick={() => handleBuy(prize)}
-                disabled={profile.inventory?.includes(prize.id)}
+                disabled={profile.inventory?.includes(prize.id) && prize.id !== 'diamond_pack_1'}
                 className={`w-full py-2 rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-xl ${
-                  profile.inventory?.includes(prize.id) 
+                  profile.inventory?.includes(prize.id) && prize.id !== 'diamond_pack_1'
                   ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' 
                   : 'bg-white text-zinc-900 hover:bg-red-500 hover:text-white'
                 }`}
               >
-                {profile.inventory?.includes(prize.id) ? 'OK' : 'Canjear'}
+                {profile.inventory?.includes(prize.id) && prize.id !== 'diamond_pack_1' ? 'OK' : 'Canjear'}
               </button>
             </div>
           </motion.div>
@@ -3665,6 +3667,7 @@ function AdminUsersView({ onUserClick, setError, setSuccessMessage }: { onUserCl
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [customCoins, setCustomCoins] = useState<{ [uid: string]: string }>({});
+  const [customDiamonds, setCustomDiamonds] = useState<{ [uid: string]: string }>({});
 
   useEffect(() => {
     const q = query(collection(db, 'users'), orderBy('displayName', 'asc'));
@@ -3743,57 +3746,106 @@ function AdminUsersView({ onUserClick, setError, setSuccessMessage }: { onUserCl
             </div>
 
             <div className="flex flex-wrap gap-4 items-center">
-              <div className="flex items-center bg-zinc-800 rounded-2xl p-1 border border-white/5">
-                <input 
-                  type="number" 
-                  placeholder="Cantidad" 
-                  className="w-24 bg-transparent border-none outline-none text-white px-4 font-black text-xs"
-                  value={customCoins[u.uid] || ''}
-                  onChange={(e) => setCustomCoins({ ...customCoins, [u.uid]: e.target.value })}
-                />
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center bg-zinc-800 rounded-2xl p-1 border border-white/5">
+                  <input 
+                    type="number" 
+                    placeholder="Coins" 
+                    className="w-20 bg-transparent border-none outline-none text-white px-4 font-black text-xs"
+                    value={customCoins[u.uid] || ''}
+                    onChange={(e) => setCustomCoins({ ...customCoins, [u.uid]: e.target.value })}
+                  />
+                  <button 
+                    onClick={async () => {
+                      const amount = parseInt(customCoins[u.uid]);
+                      if (isNaN(amount)) return;
+                      try {
+                        await updateDoc(doc(db, 'users', u.uid), { coins: (u.coins || 0) + amount });
+                        setSuccessMessage(`Se han otorgado ${amount} CupiraCoins a ${u.displayName}`);
+                        setCustomCoins({ ...customCoins, [u.uid]: '' });
+                      } catch (err: any) {
+                        setError("Error: " + err.message);
+                      }
+                    }}
+                    className="px-3 py-2 bg-yellow-500 text-zinc-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-yellow-400 transition-all active:scale-95"
+                  >
+                    Coins
+                  </button>
+                </div>
+                <div className="flex items-center bg-zinc-800 rounded-2xl p-1 border border-white/5">
+                  <input 
+                    type="number" 
+                    placeholder="Diamonds" 
+                    className="w-20 bg-transparent border-none outline-none text-white px-4 font-black text-xs"
+                    value={customDiamonds[u.uid] || ''}
+                    onChange={(e) => setCustomDiamonds({ ...customDiamonds, [u.uid]: e.target.value })}
+                  />
+                  <button 
+                    onClick={async () => {
+                      const amount = parseInt(customDiamonds[u.uid]);
+                      if (isNaN(amount)) return;
+                      try {
+                        await updateDoc(doc(db, 'users', u.uid), { diamonds: (u.diamonds || 0) + amount });
+                        setSuccessMessage(`Se han otorgado ${amount} DiamantesCoint a ${u.displayName}`);
+                        setCustomDiamonds({ ...customDiamonds, [u.uid]: '' });
+                      } catch (err: any) {
+                        setError("Error: " + err.message);
+                      }
+                    }}
+                    className="px-3 py-2 bg-cyan-500 text-zinc-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-cyan-400 transition-all active:scale-95"
+                  >
+                    Diam
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
                 <button 
                   onClick={async () => {
-                    const amount = parseInt(customCoins[u.uid]);
-                    if (isNaN(amount)) return;
+                    if (!window.confirm(`¿Resetear juegos diarios de ${u.displayName}?`)) return;
                     try {
-                      await updateDoc(doc(db, 'users', u.uid), { coins: (u.coins || 0) + amount });
-                      setSuccessMessage(`Se han otorgado ${amount} CupiraCoins a ${u.displayName}`);
-                      setCustomCoins({ ...customCoins, [u.uid]: '' });
+                      await updateDoc(doc(db, 'users', u.uid), { 
+                        dailyPlays: { lastDate: '', luck: 0, memory: 0, trivia: 0 } 
+                      });
+                      setSuccessMessage(`Juegos de ${u.displayName} reseteados.`);
                     } catch (err: any) {
                       setError("Error: " + err.message);
                     }
                   }}
-                  className="px-4 py-3 bg-yellow-500 text-zinc-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-yellow-400 transition-all active:scale-95"
+                  className="px-4 py-2 bg-zinc-800 text-zinc-400 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-zinc-700 hover:text-white transition-all border border-white/5 active:scale-95"
                 >
-                  Asignar
+                  Reset Juegos
+                </button>
+                <button 
+                  onClick={async () => {
+                    if (!window.confirm(`¿Resetear inventario de ${u.displayName}?`)) return;
+                    try {
+                      await updateDoc(doc(db, 'users', u.uid), { inventory: [], themeColor: null });
+                      setSuccessMessage(`Inventario de ${u.displayName} reseteado.`);
+                    } catch (err: any) {
+                      setError("Error: " + err.message);
+                    }
+                  }}
+                  className="px-4 py-2 bg-zinc-800 text-zinc-400 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-zinc-700 hover:text-white transition-all border border-white/5 active:scale-95"
+                >
+                  Reset Inv
                 </button>
               </div>
-              <button 
-                onClick={async () => {
-                  if (!window.confirm(`¿Resetear inventario de ${u.displayName}?`)) return;
-                  try {
-                    await updateDoc(doc(db, 'users', u.uid), { inventory: [], themeColor: null });
-                    setSuccessMessage(`Inventario de ${u.displayName} reseteado.`);
-                  } catch (err: any) {
-                    setError("Error: " + err.message);
-                  }
-                }}
-                className="px-6 py-4 bg-zinc-800 text-zinc-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-zinc-700 hover:text-white transition-all border border-white/5 active:scale-95"
-              >
-                Reset Inv
-              </button>
-              <button 
-                onClick={() => handleResetPassword(u.email)}
-                className="flex-1 md:flex-none px-8 py-4 bg-zinc-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-zinc-700 transition-all border border-white/5 active:scale-95"
-              >
-                Resetear Clave
-              </button>
-              <button 
-                onClick={() => onUserClick(u.uid)}
-                className="flex-1 md:flex-none px-8 py-4 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:opacity-90 transition-all shadow-xl shadow-primary/20 active:scale-95"
-              >
-                Ver Perfil
-              </button>
+
+              <div className="flex flex-col gap-2">
+                <button 
+                  onClick={() => handleResetPassword(u.email)}
+                  className="px-4 py-2 bg-zinc-800 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-zinc-700 transition-all border border-white/5 active:scale-95"
+                >
+                  Reset Clave
+                </button>
+                <button 
+                  onClick={() => onUserClick(u.uid)}
+                  className="px-4 py-2 bg-primary text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:opacity-90 transition-all shadow-xl shadow-primary/20 active:scale-95"
+                >
+                  Ver Perfil
+                </button>
+              </div>
             </div>
           </motion.div>
         ))}
