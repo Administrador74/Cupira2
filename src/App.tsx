@@ -160,6 +160,19 @@ export default function App() {
     }
   };
 
+  const updateDiamonds = async (uid: string, amount: number) => {
+    try {
+      const userRef = doc(db, 'users', uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const currentDiamonds = userSnap.data().diamonds || 0;
+        await updateDoc(userRef, { diamonds: currentDiamonds + amount });
+      }
+    } catch (err) {
+      console.error("Error updating diamonds:", err);
+    }
+  };
+
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
@@ -469,6 +482,13 @@ export default function App() {
                   </div>
                   <span className="text-sm font-black text-yellow-500 tracking-tighter">{profile.coins || 0} CupiraCoins</span>
                 </div>
+
+                <div className="flex items-center gap-2 bg-cyan-500/10 px-4 py-2 rounded-2xl border border-cyan-500/20 shadow-lg shadow-cyan-500/5">
+                  <div className="w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center shadow-inner">
+                    <span className="text-[10px] font-black text-zinc-900">D</span>
+                  </div>
+                  <span className="text-sm font-black text-cyan-500 tracking-tighter">{profile.diamonds || 0} DiamantesCoint</span>
+                </div>
               </div>
 
               <AnimatePresence mode="wait">
@@ -486,8 +506,8 @@ export default function App() {
                   {view === 'admin-messages' && <AdminMessagesView onChatSelect={(u1, u2) => setChatTargetId(`${u1}_${u2}`)} />}
                   {view === 'admin-users' && <AdminUsersView onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} setError={setError} setSuccessMessage={setSuccessMessage} />}
                   {view === 'users-list' && <UsersListView onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
-                  {view === 'shop' && <ShopView profile={profile} updateCoins={updateCoins} setError={setError} setSuccessMessage={setSuccessMessage} />}
-                  {view === 'games' && <GamesView profile={profile} updateCoins={updateCoins} setError={setError} setSuccessMessage={setSuccessMessage} />}
+                  {view === 'shop' && <ShopView profile={profile} updateCoins={updateCoins} updateDiamonds={updateDiamonds} setError={setError} setSuccessMessage={setSuccessMessage} />}
+                  {view === 'games' && <GamesView profile={profile} updateCoins={updateCoins} updateDiamonds={updateDiamonds} setError={setError} setSuccessMessage={setSuccessMessage} />}
                   {view === 'other-profile' && selectedUserId && (
                     <ProfileView 
                       profile={profile} 
@@ -2308,7 +2328,7 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
 
 // --- Shop View ---
 
-function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { profile: User, updateCoins: (uid: string, amount: number) => Promise<void>, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
+function GamesView({ profile, updateCoins, updateDiamonds, setError, setSuccessMessage }: { profile: User, updateCoins: (uid: string, amount: number) => Promise<void>, updateDiamonds: (uid: string, amount: number) => Promise<void>, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
   const [activeGame, setActiveGame] = useState<'luck' | 'memory' | 'trivia' | null>(null);
   const [gameState, setGameState] = useState<any>(null);
   const [result, setResult] = useState<{ win: boolean, message: string } | null>(null);
@@ -2509,9 +2529,9 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
     setPlaying(false);
     await incrementPlays('luck');
     const outcomes = [
-      { win: true, amount: 50, msg: "¡Increíble! Encontraste el tesoro real. +50 CupiraCoins" },
+      { win: true, amount: 100, msg: "¡Increíble! Encontraste el tesoro real. +100 CupiraCoins" },
       { win: false, amount: 0, msg: "El cofre estaba vacío... Mejor suerte la próxima." },
-      { win: false, amount: -30, msg: "¡Oh no! Era una trampa. -30 CupiraCoins" }
+      { win: false, amount: -50, msg: "¡Oh no! Era una trampa. -50 CupiraCoins" }
     ];
     const outcome = outcomes[gameState.chests[idx]];
     await updateCoins(profile.uid, outcome.amount);
@@ -2526,7 +2546,7 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
     setGameState({ sequence, userSequence: [], showSequence: true });
     setResult(null);
     setPlaying(true);
-    setTimer(3);
+    setTimer(4);
     
     const interval = setInterval(() => {
       setTimer(prev => {
@@ -2542,46 +2562,67 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
 
   const handleMemoryClick = async (emoji: string) => {
     if (!playing || gameState.showSequence) return;
+    if (gameState.userSequence.length >= 4) return;
+
     const newUserSeq = [...gameState.userSequence, emoji];
-    const currentIndex = gameState.userSequence.length;
-    
     setGameState((prev: any) => ({ ...prev, userSequence: newUserSeq }));
 
-    if (emoji !== gameState.sequence[currentIndex]) {
+    if (newUserSeq.length === 4) {
       setPlaying(false);
       await incrementPlays('memory');
-      await updateCoins(profile.uid, -20);
-      setResult({ win: false, message: "Secuencia incorrecta. -20 CupiraCoins" });
-      return;
-    }
-
-    if (newUserSeq.length === gameState.sequence.length) {
-      setPlaying(false);
-      await incrementPlays('memory');
-      await updateCoins(profile.uid, 40);
-      setResult({ win: true, message: "¡Memoria perfecta! +40 CupiraCoins" });
+      
+      const isCorrect = newUserSeq.every((e, i) => e === gameState.sequence[i]);
+      
+      if (isCorrect) {
+        await updateCoins(profile.uid, 60);
+        setResult({ win: true, message: "¡Memoria perfecta! +60 CupiraCoins" });
+      } else {
+        await updateCoins(profile.uid, -30);
+        setResult({ win: false, message: "Secuencia incorrecta. -30 CupiraCoins" });
+      }
     }
   };
 
   const startTriviaGame = () => {
     if (!checkLimit('trivia')) return;
-    const question = TRIVIA_QUESTIONS[Math.floor(Math.random() * TRIVIA_QUESTIONS.length)];
+    const firstQ = TRIVIA_QUESTIONS[Math.floor(Math.random() * TRIVIA_QUESTIONS.length)];
     setActiveGame('trivia');
-    setGameState({ ...question });
+    setGameState({ 
+      questions: [firstQ], 
+      currentIndex: 0, 
+      score: 0, 
+      currentQ: firstQ,
+      completed: false 
+    });
     setResult(null);
     setPlaying(true);
   };
 
   const handleTriviaAnswer = async (ans: string) => {
     if (!playing) return;
-    setPlaying(false);
-    await incrementPlays('trivia');
-    if (ans === gameState.a) {
-      await updateCoins(profile.uid, 30);
-      setResult({ win: true, message: "¡Correcto! +30 CupiraCoins" });
+    
+    const isCorrect = ans === gameState.currentQ.a;
+    const newScore = isCorrect ? gameState.score + 1 : gameState.score;
+    const nextIndex = gameState.currentIndex + 1;
+
+    if (nextIndex < 10) {
+      const nextQ = TRIVIA_QUESTIONS[Math.floor(Math.random() * TRIVIA_QUESTIONS.length)];
+      setGameState((prev: any) => ({
+        ...prev,
+        currentIndex: nextIndex,
+        score: newScore,
+        currentQ: nextQ
+      }));
     } else {
-      await updateCoins(profile.uid, -15);
-      setResult({ win: false, message: `Incorrecto. Era ${gameState.a}. -15 CupiraCoins` });
+      setPlaying(false);
+      await incrementPlays('trivia');
+      const finalWin = newScore >= 7;
+      const coinReward = newScore * 10 - (10 - newScore) * 5;
+      await updateCoins(profile.uid, coinReward);
+      setResult({ 
+        win: finalWin, 
+        message: `Ronda terminada. Puntuación: ${newScore}/10. ${coinReward >= 0 ? '+' : ''}${coinReward} CupiraCoins` 
+      });
     }
   };
 
@@ -2639,25 +2680,25 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
           </button>
 
           {activeGame === 'luck' && (
-            <div className="space-y-8">
+            <div className="space-y-8 py-4">
               <h2 className="text-2xl font-black text-white">Elige un Cofre</h2>
-              <div className="flex justify-center gap-6">
+              <div className="flex flex-wrap justify-center gap-6 px-4">
                 {[
-                  { color: 'bg-blue-600', shadow: 'shadow-blue-600/40' },
-                  { color: 'bg-red-600', shadow: 'shadow-red-600/40' },
-                  { color: 'bg-zinc-950', shadow: 'shadow-white/5' }
+                  { color: 'bg-blue-600', shadow: 'shadow-blue-600/40', name: 'Azul' },
+                  { color: 'bg-red-600', shadow: 'shadow-red-600/40', name: 'Rojo' },
+                  { color: 'bg-zinc-950', shadow: 'shadow-white/5', name: 'Negro' }
                 ].map((c, i) => (
                   <motion.button
                     key={i}
                     whileHover={playing ? { scale: 1.1, y: -10 } : {}}
                     whileTap={playing ? { scale: 0.9 } : {}}
                     onClick={() => handleLuckChoice(i)}
-                    className={`w-24 h-24 rounded-3xl transition-all flex items-center justify-center text-4xl shadow-2xl ${c.color} ${c.shadow} ${!playing ? 'opacity-50 grayscale' : 'border-4 border-white/10 hover:border-white/30'}`}
+                    className={`w-28 h-28 rounded-[2rem] transition-all flex items-center justify-center text-5xl shadow-2xl ${c.color} ${c.shadow} ${!playing ? 'opacity-50 grayscale' : 'border-4 border-white/10 hover:border-white/30'}`}
                   >
                     <div className="relative">
                       📦
-                      {!playing && gameState.chests[i] === 0 && <span className="absolute -top-2 -right-2 text-xl">✨</span>}
-                      {!playing && gameState.chests[i] === 2 && <span className="absolute -top-2 -right-2 text-xl">💀</span>}
+                      {!playing && gameState.chests[i] === 0 && <span className="absolute -top-4 -right-4 text-2xl animate-bounce">✨</span>}
+                      {!playing && gameState.chests[i] === 2 && <span className="absolute -top-4 -right-4 text-2xl">💀</span>}
                     </div>
                   </motion.button>
                 ))}
@@ -2683,29 +2724,31 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
                 )}
               </div>
               
-              <div className="flex justify-center gap-4 min-h-[80px]">
+              <div className="grid grid-cols-2 gap-4 max-w-[200px] mx-auto min-h-[200px]">
                 {(gameState.showSequence ? gameState.sequence : gameState.userSequence).map((e: string, i: number) => (
-                  <motion.span 
+                  <motion.div 
                     key={i} 
-                    initial={{ scale: 0 }} 
-                    animate={{ scale: 1 }} 
-                    className={`text-4xl p-4 rounded-2xl border-2 transition-all ${gameState.showSequence ? 'bg-zinc-800 border-white/10' : 'bg-red-600/20 border-red-600'}`}
+                    initial={{ scale: 0, rotate: -10 }} 
+                    animate={{ scale: 1, rotate: 0 }} 
+                    className={`aspect-square flex items-center justify-center text-5xl rounded-3xl border-2 transition-all shadow-xl ${gameState.showSequence ? 'bg-zinc-800 border-white/10' : 'bg-red-600/20 border-red-600 shadow-red-600/10'}`}
                   >
                     {e}
-                  </motion.span>
+                  </motion.div>
                 ))}
-                {!gameState.showSequence && Array.from({ length: gameState.sequence.length - gameState.userSequence.length }).map((_, i) => (
-                  <div key={i} className="w-16 h-16 bg-zinc-800/50 rounded-2xl border-2 border-dashed border-white/5"></div>
+                {!gameState.showSequence && Array.from({ length: 4 - gameState.userSequence.length }).map((_, i) => (
+                  <div key={i} className="aspect-square bg-zinc-800/50 rounded-3xl border-2 border-dashed border-white/5 flex items-center justify-center text-zinc-700 text-2xl font-black">
+                    ?
+                  </div>
                 ))}
               </div>
 
               {!gameState.showSequence && playing && (
-                <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
+                <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto pt-4">
                   {['🍎', '🍌', '🍇', '🍓', '🍒', '🥝'].map(e => (
                     <button 
                       key={e} 
                       onClick={() => handleMemoryClick(e)}
-                      className={`text-3xl p-4 rounded-2xl transition-all active:scale-90 border-2 ${gameState.userSequence.includes(e) ? 'bg-red-600 border-white/20' : 'bg-zinc-800 border-white/5 hover:bg-zinc-700'}`}
+                      className={`text-3xl p-5 rounded-2xl transition-all active:scale-90 border-2 ${gameState.userSequence.includes(e) ? 'bg-red-600 border-white/20 shadow-lg shadow-red-600/20' : 'bg-zinc-800 border-white/5 hover:bg-zinc-700'}`}
                     >
                       {e}
                     </button>
@@ -2717,15 +2760,19 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
 
           {activeGame === 'trivia' && (
             <div className="space-y-8">
-              <div className="bg-zinc-800/50 p-6 rounded-[2rem] border border-white/5">
-                <h2 className="text-xl md:text-2xl font-black text-white px-4 leading-tight">{gameState.q}</h2>
+              <div className="flex justify-between items-center px-4">
+                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Pregunta {gameState.currentIndex + 1}/10</span>
+                <span className="text-[10px] font-black text-green-500 uppercase tracking-widest">Aciertos: {gameState.score}</span>
+              </div>
+              <div className="bg-zinc-800/50 p-8 rounded-[2.5rem] border border-white/5 shadow-inner">
+                <h2 className="text-xl md:text-2xl font-black text-white px-2 leading-tight">{gameState.currentQ.q}</h2>
               </div>
               <div className="grid grid-cols-1 gap-3 max-w-sm mx-auto">
-                {gameState.options.map((opt: string) => (
+                {gameState.currentQ.options.map((opt: string) => (
                   <button 
                     key={opt} 
                     onClick={() => handleTriviaAnswer(opt)}
-                    className="w-full py-4 bg-zinc-800 text-white rounded-2xl font-black hover:bg-red-600 transition-all active:scale-95 border border-white/5 shadow-lg"
+                    className="w-full py-5 bg-zinc-800 text-white rounded-2xl font-black hover:bg-red-600 transition-all active:scale-95 border border-white/5 shadow-lg text-lg"
                   >
                     {opt}
                   </button>
@@ -2755,21 +2802,24 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
   );
 }
 
-function ShopView({ profile, updateCoins, setError, setSuccessMessage }: { profile: User, updateCoins: (uid: string, amount: number) => Promise<void>, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
+function ShopView({ profile, updateCoins, updateDiamonds, setError, setSuccessMessage }: { profile: User, updateCoins: (uid: string, amount: number) => Promise<void>, updateDiamonds: (uid: string, amount: number) => Promise<void>, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
   const prizes = [
-    { id: 'badge_unique', name: 'Insignia Única', description: 'Una estrella dorada al lado de tu nombre.', cost: 300, icon: '⭐' },
-    { id: 'profile_frame', name: 'Marco de Avatar', description: 'Un borde brillante para tu foto de perfil.', cost: 500, icon: '🖼️' },
-    { id: 'full_profile_frame', name: 'Marco de Perfil Completo', description: 'Un diseño exclusivo que rodea todo tu perfil.', cost: 1500, icon: '👑' },
-    { id: 'theme_custom', name: 'Color de Interfaz', description: 'Cambia el color principal de tu aplicación.', cost: 1000, icon: '🎨' },
-    { id: 'premium_theme', name: 'Tema Premium', description: 'Sube tu propia imagen de fondo para tu perfil.', cost: 2000, icon: '✨' },
-    { id: 'user_list_access', name: 'Lista de Usuarios', description: 'Acceso a la lista completa de exploradores.', cost: 800, icon: '📋' },
-    { id: 'follow_request', name: 'Solicitud de Seguir', description: 'Sistema de seguimiento por aprobación.', cost: 400, icon: '🤝' },
+    { id: 'badge_unique', name: 'Insignia Única', description: 'Una estrella dorada al lado de tu nombre.', cost: 300, icon: '⭐', currency: 'coins' },
+    { id: 'profile_frame', name: 'Marco de Avatar', description: 'Un borde brillante para tu foto de perfil.', cost: 500, icon: '🖼️', currency: 'coins' },
+    { id: 'full_profile_frame', name: 'Marco de Perfil Completo', description: 'Un diseño exclusivo que rodea todo tu perfil.', cost: 1500, icon: '👑', currency: 'coins' },
+    { id: 'theme_custom', name: 'Color de Interfaz', description: 'Cambia el color principal de tu aplicación.', cost: 1000, icon: '🎨', currency: 'coins' },
+    { id: 'premium_theme', name: 'Tema Premium', description: 'Sube tu propia imagen de fondo para tu perfil.', cost: 2000, icon: '✨', currency: 'coins' },
+    { id: 'user_list_access', name: 'Lista de Usuarios', description: 'Acceso a la lista completa de exploradores.', cost: 800, icon: '📋', currency: 'coins' },
+    { id: 'follow_request', name: 'Solicitud de Seguir', description: 'Sistema de seguimiento por aprobación.', cost: 400, icon: '🤝', currency: 'coins' },
+    { id: 'diamond_pack_1', name: 'Pack 10 Diamantes', description: 'DiamantesCoint para funciones exclusivas.', cost: 5000, icon: '💎', currency: 'coins' },
+    { id: 'premium_status', name: 'Estatus Diamante', description: 'Acceso total a la versión paga de CupiraApp.', cost: 50, icon: '💠', currency: 'diamonds' },
   ];
 
   const handleBuy = async (prize: any) => {
-    const currentCoins = profile.coins || 0;
-    if (currentCoins < prize.cost) {
-      setError(`No tienes suficientes CupiraCoins. Te faltan ${prize.cost - currentCoins} 🦊`);
+    const currentBalance = prize.currency === 'diamonds' ? (profile.diamonds || 0) : (profile.coins || 0);
+    
+    if (currentBalance < prize.cost) {
+      setError(`No tienes suficientes ${prize.currency === 'diamonds' ? 'DiamantesCoint' : 'CupiraCoins'}. Te faltan ${prize.cost - currentBalance} 🦊`);
       return;
     }
 
@@ -2779,7 +2829,16 @@ function ShopView({ profile, updateCoins, setError, setSuccessMessage }: { profi
     }
 
     try {
-      await updateCoins(profile.uid, -prize.cost);
+      if (prize.currency === 'diamonds') {
+        await updateDiamonds(profile.uid, -prize.cost);
+      } else {
+        await updateCoins(profile.uid, -prize.cost);
+      }
+
+      if (prize.id === 'diamond_pack_1') {
+        await updateDiamonds(profile.uid, 10);
+      }
+
       await updateDoc(doc(db, 'users', profile.uid), {
         inventory: arrayUnion(prize.id)
       });
@@ -2801,7 +2860,7 @@ function ShopView({ profile, updateCoins, setError, setSuccessMessage }: { profi
           <ShoppingBag size={32} className="text-zinc-900" strokeWidth={2.5} />
         </motion.div>
         <h1 className="text-3xl font-black text-white tracking-tighter mb-2">Tienda CupiraApp</h1>
-        <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Canjea tus CupiraCoins</p>
+        <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Canjea tus CupiraCoins y DiamantesCoint</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:gap-6">
@@ -2866,10 +2925,10 @@ function ShopView({ profile, updateCoins, setError, setSuccessMessage }: { profi
                 </div>
               )}
               <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
-                  <span className="text-[6px] font-black text-zinc-900">F</span>
+                <div className={`w-4 h-4 ${prize.currency === 'diamonds' ? 'bg-cyan-500' : 'bg-yellow-500'} rounded-full flex items-center justify-center`}>
+                  <span className="text-[6px] font-black text-zinc-900">{prize.currency === 'diamonds' ? 'D' : 'F'}</span>
                 </div>
-                <span className="text-sm md:text-base font-black text-yellow-500 tracking-tighter">{prize.cost}</span>
+                <span className={`text-sm md:text-base font-black ${prize.currency === 'diamonds' ? 'text-cyan-500' : 'text-yellow-500'} tracking-tighter`}>{prize.cost}</span>
               </div>
               <button 
                 onClick={() => handleBuy(prize)}

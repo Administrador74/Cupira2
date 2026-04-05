@@ -9,6 +9,7 @@ export interface User {
   status?: string;
   gallery?: string[];
   coins?: number;
+  diamonds?: number;
   inventory?: string[];
   isDeleted?: boolean;
   themeColor?: string;
