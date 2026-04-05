@@ -1,8 +1,10 @@
-const CACHE_NAME = 'foxblack-cache-v1';
+const CACHE_NAME = 'CupiraApp-cache-v2.0';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  'https://picsum.photos/seed/cupiraapp-red/192/192',
+  'https://picsum.photos/seed/cupiraapp-red/512/512'
 ];
 
 self.addEventListener('install', event => {

@@ -133,7 +133,7 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'login' | 'register' | 'main' | 'profile' | 'search' | 'other-profile' | 'messages' | 'admin-messages' | 'users-list'>('login');
+  const [view, setView] = useState<'login' | 'register' | 'main' | 'profile' | 'search' | 'other-profile' | 'messages' | 'admin-messages' | 'users-list' | 'shop' | 'admin-users' | 'games'>('login');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [chatTargetId, setChatTargetId] = useState<string | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -487,6 +487,7 @@ export default function App() {
                   {view === 'admin-users' && <AdminUsersView onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} setError={setError} setSuccessMessage={setSuccessMessage} />}
                   {view === 'users-list' && <UsersListView onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
                   {view === 'shop' && <ShopView profile={profile} updateCoins={updateCoins} setError={setError} setSuccessMessage={setSuccessMessage} />}
+                  {view === 'games' && <GamesView profile={profile} updateCoins={updateCoins} setError={setError} setSuccessMessage={setSuccessMessage} />}
                   {view === 'other-profile' && selectedUserId && (
                     <ProfileView 
                       profile={profile} 
@@ -1233,8 +1234,8 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
     setIsGeneratingGame(true);
     
     // Local games list
-    const localGameTypes = ['number', 'math'];
-    const useAI = Math.random() > 0.7; // 30% chance for AI if key is available
+    const localGameTypes = ['number', 'math', 'duel'];
+    const useAI = Math.random() > 0.6; // 40% chance for AI if key is available
     
     try {
       const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || (window as any).API_KEY;
@@ -1246,7 +1247,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
         if (gameType === 'number') {
           const targetNum = Math.floor(Math.random() * 20) + 1;
           setGameState({ type: 'number', data: { target: targetNum, attempts: 0 } });
-          const challenge = `🎮 JUEGO: ¡Adivina el número del 1 al 20! Tienes 3 intentos. El primero que lo diga gana 100 CupiraCoins. Si fallan 3 veces, pierden 20 CupiraCoins cada uno.`;
+          const challenge = `🎮 JUEGO EN PAREJA: @${profile.displayName} vs @${targetUser.displayName}. ¡Adivina el número del 1 al 20! El ganador obtiene 20 CupiraCoins y el otro los PIERDE. Tienes 3 intentos.`;
           await addDoc(collection(db, 'messages'), {
             senderId: 'system',
             receiverId: 'all',
@@ -1261,7 +1262,25 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
           const op = Math.random() > 0.5 ? '+' : '-';
           const result = op === '+' ? a + b : a - b;
           setGameState({ type: 'math', data: { answer: result, attempts: 0 } });
-          const challenge = `🎮 RETO MATEMÁTICO: ¿Cuánto es ${a} ${op} ${b}? El primero en responder gana 150 CupiraCoins. Tienes 2 intentos.`;
+          const challenge = `🎮 RETO MATEMÁTICO: @${profile.displayName} vs @${targetUser.displayName}. ¿Cuánto es ${a} ${op} ${b}? Gana 20 CupiraCoins y el oponente los PIERDE. Tienes 2 intentos.`;
+          await addDoc(collection(db, 'messages'), {
+            senderId: 'system',
+            receiverId: 'all',
+            conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
+            content: challenge,
+            createdAt: serverTimestamp(),
+            read: true
+          });
+        } else if (gameType === 'duel') {
+          const duels = [
+            { q: "¿Cuál es la capital de Francia?", a: "Paris" },
+            { q: "¿Cuántos continentes hay?", a: "7" },
+            { q: "¿Color del cielo despejado?", a: "Azul" },
+            { q: "¿Animal que dice miau?", a: "Gato" }
+          ];
+          const duel = duels[Math.floor(Math.random() * duels.length)];
+          setGameState({ type: 'duel', data: { ...duel, attempts: 0 } });
+          const challenge = `⚔️ DUELO EN PAREJA: @${profile.displayName} vs @${targetUser.displayName}. El primero en responder correctamente gana 20 CupiraCoins y el otro los PIERDE. Pregunta: ${duel.q}`;
           await addDoc(collection(db, 'messages'), {
             senderId: 'system',
             receiverId: 'all',
@@ -1276,7 +1295,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
       }
 
       const ai = new GoogleGenAI({ apiKey });
-      const prompt = `Eres el Maestro de Juegos de CUPIRAAPP. Genera un acertijo corto y MUY DIFÍCIL para que ${profile.displayName} y ${targetUser.displayName} lo resuelvan. Responde con un JSON: {"riddle": "texto del acertijo", "answer": "respuesta corta"}`;
+      const prompt = `Eres el Maestro de Juegos de CUPIRAAPP. Genera una pregunta de cultura general MUY CORTA para un duelo entre dos personas. Responde con un JSON: {"question": "texto de la pregunta", "answer": "respuesta corta"}`;
 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
@@ -1288,8 +1307,8 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
       
       const text = response.text || "{}";
       const gameData = JSON.parse(text);
-      setGameState({ type: 'riddle', data: { ...gameData, attempts: 0 } });
-      const challenge = `🎮 ACERTIJO MORTAL: ${gameData.riddle} (Responde correctamente para ganar 200 CupiraCoins. Si fallan 2 veces, pierden 50 CupiraCoins)`;
+      setGameState({ type: 'duel', data: { ...gameData, attempts: 0 } });
+      const challenge = `⚔️ DUELO IA: El primero en responder correctamente gana 20 CupiraCoins y el otro los PIERDE. Pregunta: ${gameData.question}`;
       await addDoc(collection(db, 'messages'), {
         senderId: 'system',
         receiverId: 'all',
@@ -1303,7 +1322,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
       // If AI fails, fallback to a local game instead of error
       const targetNum = Math.floor(Math.random() * 10) + 1;
       setGameState({ type: 'number', data: { target: targetNum, attempts: 0 } });
-      const challenge = `🎮 JUEGO (Local): ¡Adivina el número del 1 al 10! Gana 50 CupiraCoins.`;
+      const challenge = `🎮 JUEGO EN PAREJA: @${profile.displayName} vs @${targetUser.displayName}. ¡Adivina el número del 1 al 10! Gana 20 CupiraCoins y el otro los PIERDE.`;
       await addDoc(collection(db, 'messages'), {
         senderId: 'system',
         receiverId: 'all',
@@ -1323,27 +1342,28 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
     if (gameState.type === 'number') {
       const userGuess = parseInt(text.trim());
       if (userGuess === gameState.data.target) {
-        await updateCoins(senderUid, 100);
+        const winnerName = senderUid === profile.uid ? profile.displayName : targetUser!.displayName;
+        const loserUid = senderUid === profile.uid ? targetUser!.uid : profile.uid;
+        await updateCoins(senderUid, 20);
+        await updateCoins(loserUid, -20);
         setGameState(null);
         await addDoc(collection(db, 'messages'), {
           senderId: 'system',
           receiverId: 'all',
           conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
-          content: `🎉 ¡VICTORIA! El número era ${gameState.data.target}. @${profile.displayName} ha ganado 100 CupiraCoins.`,
+          content: `🎉 ¡VICTORIA! El número era ${gameState.data.target}. @${winnerName} ha ganado 20 CupiraCoins y el oponente los pierde.`,
           createdAt: serverTimestamp(),
           read: true
         });
       } else {
         const newAttempts = gameState.data.attempts + 1;
         if (newAttempts >= 3) {
-          await updateCoins(profile.uid, -20);
-          await updateCoins(targetUser!.uid, -20);
           setGameState(null);
           await addDoc(collection(db, 'messages'), {
             senderId: 'system',
             receiverId: 'all',
             conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
-            content: `💀 DERROTA: Nadie adivinó el número ${gameState.data.target}. Han perdido 20 CupiraCoins cada uno.`,
+            content: `💀 DERROTA: Nadie adivinó el número ${gameState.data.target}. Se acabaron los intentos.`,
             createdAt: serverTimestamp(),
             read: true
           });
@@ -1354,13 +1374,16 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
     } else if (gameState.type === 'math') {
       const userGuess = parseInt(text.trim());
       if (userGuess === gameState.data.answer) {
-        await updateCoins(senderUid, 150);
+        const winnerName = senderUid === profile.uid ? profile.displayName : targetUser!.displayName;
+        const loserUid = senderUid === profile.uid ? targetUser!.uid : profile.uid;
+        await updateCoins(senderUid, 20);
+        await updateCoins(loserUid, -20);
         setGameState(null);
         await addDoc(collection(db, 'messages'), {
           senderId: 'system',
           receiverId: 'all',
           conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
-          content: `🧮 ¡GENIO! La respuesta era ${gameState.data.answer}. @${profile.displayName} ha ganado 150 CupiraCoins.`,
+          content: `🧮 ¡GENIO! La respuesta era ${gameState.data.answer}. @${winnerName} ha ganado 20 CupiraCoins y el oponente los pierde.`,
           createdAt: serverTimestamp(),
           read: true
         });
@@ -1393,33 +1416,54 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
       });
 
       if (checkResponse.text?.toUpperCase().includes('SI')) {
-        await updateCoins(senderUid, 200);
+        const winnerName = senderUid === profile.uid ? profile.displayName : targetUser!.displayName;
+        const loserUid = senderUid === profile.uid ? targetUser!.uid : profile.uid;
+        await updateCoins(senderUid, 20);
+        await updateCoins(loserUid, -20);
         setGameState(null);
         await addDoc(collection(db, 'messages'), {
           senderId: 'system',
           receiverId: 'all',
           conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
-          content: `🎉 ¡GENIO! La respuesta era "${gameState.data.answer}". Has ganado 200 CupiraCoins.`,
+          content: `🎉 ¡GENIO! La respuesta era "${gameState.data.answer}". @${winnerName} ha ganado 20 CupiraCoins y el oponente los pierde.`,
           createdAt: serverTimestamp(),
           read: true
         });
       } else {
         const newAttempts = gameState.data.attempts + 1;
         if (newAttempts >= 2) {
-          await updateCoins(profile.uid, -50);
-          await updateCoins(targetUser!.uid, -50);
           setGameState(null);
           await addDoc(collection(db, 'messages'), {
             senderId: 'system',
             receiverId: 'all',
             conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
-            content: `💀 DERROTA: Fallaron el acertijo. La respuesta era "${gameState.data.answer}". Pierden 50 CupiraCoins.`,
+            content: `💀 DERROTA: Fallaron el acertijo. La respuesta era "${gameState.data.answer}".`,
             createdAt: serverTimestamp(),
             read: true
           });
         } else {
           setGameState({ ...gameState, data: { ...gameState.data, attempts: newAttempts } });
         }
+      }
+    } else if (gameState.type === 'duel') {
+      const isCorrect = text.toLowerCase().trim() === gameState.data.answer.toLowerCase().trim();
+      if (isCorrect) {
+        const winnerName = senderUid === profile.uid ? profile.displayName : targetUser!.displayName;
+        const loserUid = senderUid === profile.uid ? targetUser!.uid : profile.uid;
+        await updateCoins(senderUid, 20);
+        await updateCoins(loserUid, -20);
+        setGameState(null);
+        await addDoc(collection(db, 'messages'), {
+          senderId: 'system',
+          receiverId: 'all',
+          conversationId: [effectiveProfileId, effectiveTargetId].sort().join('_'),
+          content: `🏆 ¡DUELO FINALIZADO! @${winnerName} respondió correctamente. Gana 20 CupiraCoins y el oponente los pierde.`,
+          createdAt: serverTimestamp(),
+          read: true
+        });
+      } else {
+        // Penalizar por fallar en duelo para evitar spam
+        await updateCoins(senderUid, -5);
       }
     }
   };
@@ -1584,13 +1628,13 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
 
   return (
     <motion.div 
-      initial={{ y: 100, opacity: 0, scale: 0.95 }}
-      animate={{ y: 0, opacity: 1, scale: 1 }}
-      exit={{ y: 100, opacity: 0, scale: 0.95 }}
-      className="fixed bottom-20 right-2 left-2 md:left-auto md:right-10 md:bottom-10 md:w-[400px] h-[70vh] md:h-[650px] bg-zinc-950 rounded-[2.5rem] md:rounded-[3.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] border border-white/10 flex flex-col z-[100] overflow-hidden"
+      initial={{ y: '100%', opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      exit={{ y: '100%', opacity: 0 }}
+      className="fixed inset-0 md:inset-auto md:right-10 md:bottom-10 md:w-[450px] md:h-[750px] bg-zinc-950 md:rounded-[3.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] border-t md:border border-white/10 flex flex-col z-[100] overflow-hidden"
     >
       {/* Header */}
-      <div className={`p-8 ${isGameMode ? 'bg-gradient-to-r from-purple-600 to-blue-600' : 'bg-zinc-900'} border-b border-white/5 flex items-center justify-between transition-colors duration-500`}>
+      <div className={`p-6 md:p-8 ${isGameMode ? 'bg-gradient-to-r from-purple-600 to-blue-600' : 'bg-zinc-900'} border-b border-white/5 flex items-center justify-between transition-colors duration-500`}>
         <div className="flex items-center gap-4">
           <div className="relative">
             <img 
@@ -1618,7 +1662,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
           {!adminViewIds && (
             <button 
               onClick={() => setIsGameMode(!isGameMode)}
-              className={`p-3 rounded-2xl transition-all ${isGameMode ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+              className={`p-3 rounded-2xl transition-all ${isGameMode ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
               title="Modo Juego IA"
             >
               <Gamepad2 size={20} strokeWidth={2.5} />
@@ -1662,14 +1706,15 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
                 <p className="text-xs font-bold text-purple-100 leading-relaxed">
                   {gameState.type === 'riddle' ? `🧩 ACERTIJO: ${gameState.data.riddle}` : 
                    gameState.type === 'number' ? `🔢 ADIVINA: El número está entre 1 y ${gameState.data.target > 10 ? '20' : '10'}.` :
+                   gameState.type === 'duel' ? `⚔️ DUELO: ${gameState.data.question}` :
                    `🧮 MATEMÁTICAS: Resuelve el reto enviado al chat.`}
                 </p>
                 <div className="mt-2 flex items-center justify-between">
                   <span className="text-[9px] font-black text-purple-400 uppercase tracking-widest">
-                    Intentos: {gameState.data.attempts}
+                    {gameState.type === 'duel' ? '¡Responde rápido!' : `Intentos: ${gameState.data.attempts}`}
                   </span>
                   <span className="text-[9px] font-black text-yellow-500 uppercase tracking-widest">
-                    {gameState.type === 'riddle' ? '200 Coins' : gameState.type === 'number' ? '100 Coins' : '150 Coins'}
+                    {gameState.type === 'duel' ? '20 Coins' : (gameState.type === 'riddle' ? '200 Coins' : gameState.type === 'number' ? '100 Coins' : '150 Coins')}
                   </span>
                 </div>
               </motion.div>
@@ -1693,12 +1738,14 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
                   className="w-8 h-8 rounded-full border border-white/10 shadow-lg object-cover mb-1 flex-shrink-0"
                 />
               )}
-              <div className={`max-w-[85%] p-5 rounded-[2rem] font-medium text-sm shadow-2xl relative ${
+              <div className={`max-w-[90%] p-5 rounded-[2rem] font-medium text-sm shadow-2xl relative ${
                 isMe
-                  ? 'bg-primary text-white rounded-tr-none shadow-primary/10' 
+                  ? 'bg-red-600 text-white rounded-tr-none shadow-red-600/10' 
                   : isAdminMsg
                     ? 'bg-blue-600 text-white rounded-tl-none border border-white/5'
-                    : 'bg-zinc-900 text-zinc-100 rounded-tl-none border border-white/5'
+                    : msg.senderId === 'system'
+                      ? 'bg-gradient-to-br from-zinc-800 to-zinc-900 text-yellow-400 border-2 border-yellow-500/20 w-full text-center italic shadow-yellow-500/5'
+                      : 'bg-zinc-900 text-zinc-100 rounded-tl-none border border-white/5'
               } ${msg.deletedByAdmin ? 'italic opacity-60' : ''}`}>
                 {adminViewIds && !isAdminMsg && (
                   <div className="text-[10px] font-black uppercase tracking-widest mb-2 text-zinc-500 flex items-center gap-1">
@@ -1763,8 +1810,8 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
 
       {/* Input */}
       {(profile.role === 'admin' || !adminViewIds) && (
-        <div className="p-8 bg-zinc-900 border-t border-white/5">
-          <form onSubmit={handleSend} className="flex gap-4 items-center">
+        <div className="p-4 md:p-8 bg-zinc-900/90 backdrop-blur-2xl border-t border-white/10">
+          <form onSubmit={handleSend} className="flex gap-3 md:gap-5 items-center">
             <input 
               type="file" 
               accept="image/*" 
@@ -1776,29 +1823,35 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="p-4 bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-[1.5rem] transition-all disabled:opacity-50"
+              className="h-12 w-12 md:h-16 md:w-16 bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-2xl transition-all disabled:opacity-50 flex items-center justify-center shrink-0 border border-white/5"
             >
               {isUploading ? (
                 <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
               ) : (
-                <ImageIcon size={24} strokeWidth={3} />
+                <ImageIcon size={24} className="md:w-8 md:h-8" strokeWidth={3} />
               )}
             </button>
-            <input 
-              type="text" 
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={gameState ? "Escribe tu respuesta aquí..." : (adminViewIds ? "Intervenir en el chat..." : "Escribe un mensaje...")}
-              className={`flex-1 bg-zinc-800/50 border-2 border-transparent rounded-[1.5rem] px-6 py-4 text-sm font-black text-white focus:bg-zinc-800 focus:ring-4 outline-none transition-all placeholder:text-zinc-600 ${
-                gameState ? 'border-purple-500/30 focus:border-purple-500/50 focus:ring-purple-500/5' : (adminViewIds ? 'focus:border-blue-500/20 focus:ring-blue-500/5' : 'focus:border-primary/20 focus:ring-primary/5')
-              }`}
-            />
+            <div className="flex-1 relative">
+              <input 
+                type="text" 
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder={gameState ? "Escribe tu respuesta..." : (adminViewIds ? "Intervenir en chat..." : "Escribe un mensaje...")}
+                className={`w-full bg-zinc-800/50 border-2 border-transparent rounded-2xl px-5 md:px-7 py-4 md:py-5 text-sm md:text-base font-bold text-white focus:bg-zinc-800 focus:ring-4 outline-none transition-all placeholder:text-zinc-600 min-w-0 ${
+                  gameState ? 'border-purple-500/30 focus:border-purple-500/50 focus:ring-purple-500/5' : (adminViewIds ? 'focus:border-blue-500/20 focus:ring-blue-500/5' : 'focus:border-red-600/20 focus:ring-red-600/5')
+                }`}
+              />
+            </div>
             <button 
               type="submit"
               disabled={!newMessage.trim()}
-              className={`${adminViewIds ? 'bg-blue-600 shadow-blue-600/20 hover:bg-blue-700' : 'bg-primary shadow-primary/20 hover:opacity-90'} text-white p-4 rounded-[1.5rem] shadow-2xl transition-all disabled:opacity-30 disabled:shadow-none active:scale-90`}
+              className={`h-12 w-12 md:h-16 md:w-16 rounded-2xl shadow-2xl transition-all active:scale-90 flex items-center justify-center shrink-0 ${
+                !newMessage.trim() 
+                  ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed opacity-50' 
+                  : (adminViewIds ? 'bg-blue-600 text-white shadow-blue-600/30 hover:bg-blue-700' : 'bg-red-600 text-white shadow-red-600/30 hover:bg-red-700')
+              }`}
             >
-              <Send size={24} strokeWidth={3} />
+              <Send size={24} className="md:w-8 md:h-8" strokeWidth={3} />
             </button>
           </form>
         </div>
@@ -1828,6 +1881,7 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, show
     { id: 'search', icon: Search, label: 'Buscar' },
     { id: 'messages', icon: MessageSquare, label: 'Mensajes' },
     { id: 'shop', icon: ShoppingBag, label: 'Tienda' },
+    { id: 'games', icon: Gamepad2, label: 'Juegos' },
     { id: 'profile', icon: UserIcon, label: 'Perfil' },
     ...(profile?.inventory?.includes('user_list_access') ? [{ id: 'users-list', icon: Users, label: 'Exploradores' }] : []),
     ...(isAdmin ? [{ id: 'admin-users', icon: ShieldCheck, label: 'Admin' }] : [])
@@ -2253,6 +2307,228 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
 });
 
 // --- Shop View ---
+
+function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { profile: User, updateCoins: (uid: string, amount: number) => Promise<void>, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
+  const [activeGame, setActiveGame] = useState<'luck' | 'memory' | 'trivia' | null>(null);
+  const [gameState, setGameState] = useState<any>(null);
+  const [result, setResult] = useState<{ win: boolean, message: string } | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  const startLuckGame = () => {
+    setActiveGame('luck');
+    setGameState({ chests: [0, 1, 2].sort(() => Math.random() - 0.5) });
+    setResult(null);
+    setPlaying(true);
+  };
+
+  const handleLuckChoice = async (idx: number) => {
+    if (!playing) return;
+    setPlaying(false);
+    const outcomes = [
+      { win: true, amount: 50, msg: "¡Increíble! Encontraste el tesoro real. +50 CupiraCoins" },
+      { win: false, amount: 0, msg: "El cofre estaba vacío... Mejor suerte la próxima." },
+      { win: false, amount: -30, msg: "¡Oh no! Era una trampa. -30 CupiraCoins" }
+    ];
+    const outcome = outcomes[gameState.chests[idx]];
+    await updateCoins(profile.uid, outcome.amount);
+    setResult({ win: outcome.win, message: outcome.msg });
+  };
+
+  const startMemoryGame = () => {
+    const emojis = ['🍎', '🍌', '🍇', '🍓', '🍒', '🥝'];
+    const sequence = Array.from({ length: 4 }, () => emojis[Math.floor(Math.random() * emojis.length)]);
+    setActiveGame('memory');
+    setGameState({ sequence, userSequence: [], showSequence: true });
+    setResult(null);
+    setPlaying(true);
+    setTimeout(() => {
+      setGameState((prev: any) => ({ ...prev, showSequence: false }));
+    }, 3000);
+  };
+
+  const handleMemoryClick = async (emoji: string) => {
+    if (!playing || gameState.showSequence) return;
+    const newUserSeq = [...gameState.userSequence, emoji];
+    const currentIndex = gameState.userSequence.length;
+    
+    if (emoji !== gameState.sequence[currentIndex]) {
+      setPlaying(false);
+      await updateCoins(profile.uid, -20);
+      setResult({ win: false, message: "Secuencia incorrecta. -20 CupiraCoins" });
+      return;
+    }
+
+    if (newUserSeq.length === gameState.sequence.length) {
+      setPlaying(false);
+      await updateCoins(profile.uid, 40);
+      setResult({ win: true, message: "¡Memoria perfecta! +40 CupiraCoins" });
+    } else {
+      setGameState((prev: any) => ({ ...prev, userSequence: newUserSeq }));
+    }
+  };
+
+  const startTriviaGame = () => {
+    const questions = [
+      { q: "¿Cuál es el planeta más grande?", a: "Jupiter", options: ["Marte", "Jupiter", "Saturno"] },
+      { q: "¿Cuántos minutos tiene una hora?", a: "60", options: ["50", "60", "100"] },
+      { q: "¿Color de la esmeralda?", a: "Verde", options: ["Rojo", "Azul", "Verde"] },
+      { q: "¿Qué animal es el mejor amigo del hombre?", a: "Perro", options: ["Gato", "Perro", "Caballo"] }
+    ];
+    const question = questions[Math.floor(Math.random() * questions.length)];
+    setActiveGame('trivia');
+    setGameState({ ...question });
+    setResult(null);
+    setPlaying(true);
+  };
+
+  const handleTriviaAnswer = async (ans: string) => {
+    if (!playing) return;
+    setPlaying(false);
+    if (ans === gameState.a) {
+      await updateCoins(profile.uid, 30);
+      setResult({ win: true, message: "¡Correcto! +30 CupiraCoins" });
+    } else {
+      await updateCoins(profile.uid, -15);
+      setResult({ win: false, message: `Incorrecto. Era ${gameState.a}. -15 CupiraCoins` });
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto p-4 md:p-8 pb-32">
+      <div className="mb-8 text-center">
+        <motion.div 
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="w-16 h-16 bg-red-600 rounded-[1.5rem] flex items-center justify-center mx-auto mb-4 shadow-2xl shadow-red-600/20"
+        >
+          <Gamepad2 size={32} className="text-white" strokeWidth={2.5} />
+        </motion.div>
+        <h1 className="text-3xl font-black text-white tracking-tighter mb-2">Zona de Juegos</h1>
+        <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Gana (o pierde) CupiraCoins solo</p>
+      </div>
+
+      {!activeGame ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { id: 'luck', name: 'Cofres de Suerte', icon: '🎁', desc: 'Elige un cofre. ¡Cuidado con las trampas!', start: startLuckGame },
+            { id: 'memory', name: 'Emoji Memory', icon: '🧠', desc: 'Repite la secuencia de emojis.', start: startMemoryGame },
+            { id: 'trivia', name: 'Trivia Veloz', icon: '⚡', desc: 'Responde rápido y gana.', start: startTriviaGame }
+          ].map(game => (
+            <motion.button
+              key={game.id}
+              whileHover={{ scale: 1.02, y: -5 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={game.start}
+              className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/10 text-center group hover:bg-zinc-800/80 transition-all"
+            >
+              <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">{game.icon}</div>
+              <h3 className="text-lg font-black text-white mb-2">{game.name}</h3>
+              <p className="text-zinc-500 text-xs font-medium">{game.desc}</p>
+            </motion.button>
+          ))}
+        </div>
+      ) : (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] border border-white/10 text-center relative overflow-hidden"
+        >
+          <button 
+            onClick={() => setActiveGame(null)} 
+            className="absolute top-6 right-6 p-2 bg-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-all"
+          >
+            <X size={20} />
+          </button>
+
+          {activeGame === 'luck' && (
+            <div className="space-y-8">
+              <h2 className="text-2xl font-black text-white">Elige un Cofre</h2>
+              <div className="flex justify-center gap-4">
+                {[0, 1, 2].map(i => (
+                  <motion.button
+                    key={i}
+                    whileHover={playing ? { scale: 1.1, y: -10 } : {}}
+                    whileTap={playing ? { scale: 0.9 } : {}}
+                    onClick={() => handleLuckChoice(i)}
+                    className={`text-6xl p-6 rounded-3xl transition-all ${!playing ? 'opacity-50 grayscale' : 'bg-zinc-800 hover:bg-zinc-700'}`}
+                  >
+                    📦
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeGame === 'memory' && (
+            <div className="space-y-8">
+              <h2 className="text-2xl font-black text-white">
+                {gameState.showSequence ? 'Memoriza la secuencia...' : '¡Tu turno! Repite los emojis'}
+              </h2>
+              <div className="flex justify-center gap-4 min-h-[80px]">
+                {(gameState.showSequence ? gameState.sequence : gameState.userSequence).map((e: string, i: number) => (
+                  <motion.span 
+                    key={i} 
+                    initial={{ scale: 0 }} 
+                    animate={{ scale: 1 }} 
+                    className="text-4xl bg-zinc-800 p-4 rounded-2xl"
+                  >
+                    {e}
+                  </motion.span>
+                ))}
+              </div>
+              {!gameState.showSequence && playing && (
+                <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
+                  {['🍎', '🍌', '🍇', '🍓', '🍒', '🥝'].map(e => (
+                    <button 
+                      key={e} 
+                      onClick={() => handleMemoryClick(e)}
+                      className="text-3xl bg-zinc-800 p-4 rounded-2xl hover:bg-red-600 transition-all active:scale-90"
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeGame === 'trivia' && (
+            <div className="space-y-8">
+              <h2 className="text-2xl font-black text-white px-4">{gameState.q}</h2>
+              <div className="grid grid-cols-1 gap-3 max-w-sm mx-auto">
+                {gameState.options.map((opt: string) => (
+                  <button 
+                    key={opt} 
+                    onClick={() => handleTriviaAnswer(opt)}
+                    className="w-full py-4 bg-zinc-800 text-white rounded-2xl font-black hover:bg-red-600 transition-all active:scale-95 border border-white/5"
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {result && (
+            <motion.div 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className={`mt-8 p-6 rounded-2xl font-black ${result.win ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}
+            >
+              <p className="text-lg mb-4">{result.message}</p>
+              <button 
+                onClick={() => setActiveGame(null)}
+                className="px-8 py-2 bg-white text-zinc-900 rounded-xl text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all"
+              >
+                Volver
+              </button>
+            </motion.div>
+          )}
+        </motion.div>
+      )}
+    </div>
+  );
+}
 
 function ShopView({ profile, updateCoins, setError, setSuccessMessage }: { profile: User, updateCoins: (uid: string, amount: number) => Promise<void>, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
   const prizes = [

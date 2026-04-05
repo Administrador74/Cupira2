@@ -1,14 +1,14 @@
 {
-  "short_name": "Cupira2",
-  "name": "Cupira2 AI Assistant",
+  "short_name": "CupiraApp",
+  "name": "CupiraApp 2.0",
   "icons": [
     {
-      "src": "https://picsum.photos/seed/fox/192/192",
+      "src": "https://picsum.photos/seed/cupiraapp-red/192/192",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "https://picsum.photos/seed/fox/512/512",
+      "src": "https://picsum.photos/seed/cupiraapp-red/512/512",
       "type": "image/png",
       "sizes": "512x512"
     }
@@ -17,6 +17,6 @@
   "background_color": "#000000",
   "display": "standalone",
   "scope": "/",
-  "theme_color": "#000000",
-  "description": "Tu asistente inteligente FOXBLACK"
+  "theme_color": "#dc2626",
+  "description": "La red social de Cupira. Conéctate, comparte y chatea con tu comunidad."
 }
