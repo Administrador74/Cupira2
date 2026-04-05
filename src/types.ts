@@ -12,6 +12,12 @@ export interface User {
   inventory?: string[];
   isDeleted?: boolean;
   themeColor?: string;
+  dailyPlays?: {
+    lastDate: string;
+    luck: number;
+    memory: number;
+    trivia: number;
+  };
 }
 
 export interface Post {

@@ -2313,8 +2313,191 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
   const [gameState, setGameState] = useState<any>(null);
   const [result, setResult] = useState<{ win: boolean, message: string } | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [timer, setTimer] = useState(0);
+
+  const TRIVIA_QUESTIONS = [
+    { q: "¿Cuál es el elemento más abundante en el universo?", a: "Hidrógeno", options: ["Helio", "Oxígeno", "Hidrógeno"] },
+    { q: "¿En qué año terminó la Segunda Guerra Mundial?", a: "1945", options: ["1944", "1945", "1946"] },
+    { q: "¿Quién pintó 'La persistencia de la memoria'?", a: "Salvador Dalí", options: ["Pablo Picasso", "Salvador Dalí", "Joan Miró"] },
+    { q: "¿Cuál es el hueso más largo del cuerpo humano?", a: "Fémur", options: ["Húmero", "Fémur", "Tibia"] },
+    { q: "¿Qué país tiene la mayor población del mundo?", a: "India", options: ["China", "India", "Estados Unidos"] },
+    { q: "¿Cuál es la capital de Australia?", a: "Camberra", options: ["Sídney", "Melbourne", "Camberra"] },
+    { q: "¿Quién escribió 'Cien años de soledad'?", a: "Gabriel García Márquez", options: ["Mario Vargas Llosa", "Gabriel García Márquez", "Julio Cortázar"] },
+    { q: "¿Cuál es el metal más caro del mundo?", a: "Rodio", options: ["Oro", "Platino", "Rodio"] },
+    { q: "¿En qué país se encuentra la ciudad de Petra?", a: "Jordania", options: ["Egipto", "Jordania", "Irak"] },
+    { q: "¿Cuál es el río más largo del mundo?", a: "Amazonas", options: ["Nilo", "Amazonas", "Misisipi"] },
+    { q: "¿Qué gas absorben las plantas para realizar la fotosíntesis?", a: "Dióxido de carbono", options: ["Oxígeno", "Nitrógeno", "Dióxido de carbono"] },
+    { q: "¿Quién descubrió la penicilina?", a: "Alexander Fleming", options: ["Marie Curie", "Alexander Fleming", "Louis Pasteur"] },
+    { q: "¿Cuál es el océano más grande?", a: "Pacífico", options: ["Atlántico", "Índico", "Pacífico"] },
+    { q: "¿Cuántos corazones tiene un pulpo?", a: "3", options: ["1", "2", "3"] },
+    { q: "¿Cuál es la montaña más alta del mundo?", a: "Everest", options: ["K2", "Everest", "Kangchenjunga"] },
+    { q: "¿Quién fue el primer hombre en pisar la Luna?", a: "Neil Armstrong", options: ["Buzz Aldrin", "Neil Armstrong", "Yuri Gagarin"] },
+    { q: "¿Cuál es el país más grande del mundo por superficie?", a: "Rusia", options: ["Canadá", "China", "Rusia"] },
+    { q: "¿Qué instrumento mide la presión atmosférica?", a: "Barómetro", options: ["Termómetro", "Barómetro", "Higrómetro"] },
+    { q: "¿Cuál es el idioma más hablado del mundo?", a: "Chino mandarín", options: ["Inglés", "Español", "Chino mandarín"] },
+    { q: "¿Quién pintó la 'Mona Lisa'?", a: "Leonardo da Vinci", options: ["Miguel Ángel", "Leonardo da Vinci", "Rafael"] },
+    { q: "¿Cuál es el planeta más cercano al Sol?", a: "Mercurio", options: ["Venus", "Mercurio", "Marte"] },
+    { q: "¿En qué continente se encuentra el desierto del Sahara?", a: "África", options: ["Asia", "África", "Oceanía"] },
+    { q: "¿Cuál es el símbolo químico del oro?", a: "Au", options: ["Ag", "Au", "Fe"] },
+    { q: "¿Quién escribió 'Don Quijote de la Mancha'?", a: "Miguel de Cervantes", options: ["Lope de Vega", "Miguel de Cervantes", "Quevedo"] },
+    { q: "¿Cuál es la velocidad de la luz?", a: "299,792 km/s", options: ["150,000 km/s", "299,792 km/s", "450,000 km/s"] },
+    { q: "¿Qué órgano del cuerpo humano consume más energía?", a: "Cerebro", options: ["Corazón", "Hígado", "Cerebro"] },
+    { q: "¿Cuál es el animal terrestre más rápido?", a: "Guepardo", options: ["León", "Guepardo", "Antílope"] },
+    { q: "¿En qué año cayó el Muro de Berlín?", a: "1989", options: ["1987", "1989", "1991"] },
+    { q: "¿Cuál es la capital de Japón?", a: "Tokio", options: ["Kioto", "Osaka", "Tokio"] },
+    { q: "¿Quién formuló la teoría de la relatividad?", a: "Albert Einstein", options: ["Isaac Newton", "Albert Einstein", "Stephen Hawking"] },
+    { q: "¿Cuál es el país más pequeño del mundo?", a: "Ciudad del Vaticano", options: ["Mónaco", "San Marino", "Ciudad del Vaticano"] },
+    { q: "¿Qué parte de la célula contiene el material genético?", a: "Núcleo", options: ["Citoplasma", "Núcleo", "Mitocondria"] },
+    { q: "¿Cuál es el desierto más seco del mundo?", a: "Atacama", options: ["Sahara", "Gobi", "Atacama"] },
+    { q: "¿Quién compuso la 'Novena Sinfonía'?", a: "Beethoven", options: ["Mozart", "Beethoven", "Bach"] },
+    { q: "¿Cuál es el metal más abundante en la corteza terrestre?", a: "Aluminio", options: ["Hierro", "Aluminio", "Cobre"] },
+    { q: "¿En qué año llegó Cristóbal Colón a América?", a: "1492", options: ["1488", "1492", "1500"] },
+    { q: "¿Cuál es la capital de Canadá?", a: "Ottawa", options: ["Toronto", "Montreal", "Ottawa"] },
+    { q: "¿Qué científico propuso la teoría de la evolución?", a: "Charles Darwin", options: ["Gregor Mendel", "Charles Darwin", "Lamarck"] },
+    { q: "¿Cuál es el lago más profundo del mundo?", a: "Baikal", options: ["Superior", "Victoria", "Baikal"] },
+    { q: "¿Quién escribió 'Romeo y Julieta'?", a: "Shakespeare", options: ["Marlowe", "Shakespeare", "Milton"] },
+    { q: "¿Cuál es el elemento químico con el símbolo 'O'?", a: "Oxígeno", options: ["Oro", "Osmio", "Oxígeno"] },
+    { q: "¿En qué país se originaron los Juegos Olímpicos?", a: "Grecia", options: ["Italia", "Grecia", "Francia"] },
+    { q: "¿Cuál es la capital de Italia?", a: "Roma", options: ["Milán", "Nápoles", "Roma"] },
+    { q: "¿Qué planeta es conocido como el 'Planeta Rojo'?", a: "Marte", options: ["Venus", "Marte", "Júpiter"] },
+    { q: "¿Quién fue el primer presidente de los Estados Unidos?", a: "George Washington", options: ["Thomas Jefferson", "George Washington", "Abraham Lincoln"] },
+    { q: "¿Cuál es el animal más grande del mundo?", a: "Ballena azul", options: ["Elefante africano", "Ballena azul", "Tiburón ballena"] },
+    { q: "¿En qué año comenzó la Primera Guerra Mundial?", a: "1914", options: ["1912", "1914", "1918"] },
+    { q: "¿Cuál es la capital de Francia?", a: "París", options: ["Lyon", "Marsella", "París"] },
+    { q: "¿Qué sustancia es conocida como el 'solvente universal'?", a: "Agua", options: ["Alcohol", "Agua", "Acetona"] },
+    { q: "¿Quién pintó 'La noche estrellada'?", a: "Vincent van Gogh", options: ["Claude Monet", "Vincent van Gogh", "Edvard Munch"] },
+    { q: "¿Cuál es el continente más frío de la Tierra?", a: "Antártida", options: ["Ártico", "Antártida", "Groenlandia"] },
+    { q: "¿Qué gas es esencial para la respiración humana?", a: "Oxígeno", options: ["Nitrógeno", "Oxígeno", "Helio"] },
+    { q: "¿Quién escribió 'Odisea'?", a: "Homero", options: ["Sófocles", "Homero", "Eurípides"] },
+    { q: "¿Cuál es la capital de España?", a: "Madrid", options: ["Barcelona", "Sevilla", "Madrid"] },
+    { q: "¿Qué planeta tiene los anillos más visibles?", a: "Saturno", options: ["Júpiter", "Saturno", "Urano"] },
+    { q: "¿Quién descubrió la gravedad?", a: "Isaac Newton", options: ["Galileo Galilei", "Isaac Newton", "Johannes Kepler"] },
+    { q: "¿Cuál es el país con más islas en el mundo?", a: "Suecia", options: ["Indonesia", "Filipinas", "Suecia"] },
+    { q: "¿Qué vitamina se obtiene principalmente del sol?", a: "Vitamina D", options: ["Vitamina C", "Vitamina D", "Vitamina B12"] },
+    { q: "¿Cuál es la capital de Alemania?", a: "Berlín", options: ["Múnich", "Hamburgo", "Berlín"] },
+    { q: "¿Quién escribió 'El principito'?", a: "Antoine de Saint-Exupéry", options: ["Jules Verne", "Antoine de Saint-Exupéry", "Victor Hugo"] },
+    { q: "¿Cuál es el metal que es líquido a temperatura ambiente?", a: "Mercurio", options: ["Plomo", "Mercurio", "Estaño"] },
+    { q: "¿En qué país se encuentra la Torre Eiffel?", a: "Francia", options: ["Italia", "Francia", "España"] },
+    { q: "¿Cuál es el animal que nunca duerme?", a: "Tiburón", options: ["Delfín", "Tiburón", "Hormiga"] },
+    { q: "¿Quién fue la primera mujer en ganar un Premio Nobel?", a: "Marie Curie", options: ["Rosalind Franklin", "Marie Curie", "Ada Lovelace"] },
+    { q: "¿Cuál es la capital de Rusia?", a: "Moscú", options: ["San Petersburgo", "Moscú", "Novosibirsk"] },
+    { q: "¿Qué parte del ojo es sensible a la luz?", a: "Retina", options: ["Córnea", "Iris", "Retina"] },
+    { q: "¿Cuál es el país más poblado de África?", a: "Nigeria", options: ["Egipto", "Nigeria", "Etiopía"] },
+    { q: "¿Quién escribió 'Hamlet'?", a: "Shakespeare", options: ["Marlowe", "Shakespeare", "Jonson"] },
+    { q: "¿Cuál es el elemento químico más ligero?", a: "Hidrógeno", options: ["Helio", "Litio", "Hidrógeno"] },
+    { q: "¿En qué año se hundió el Titanic?", a: "1912", options: ["1910", "1912", "1914"] },
+    { q: "¿Cuál es la capital de China?", a: "Pekín", options: ["Shanghái", "Pekín", "Cantón"] },
+    { q: "¿Qué planeta es el más caliente del sistema solar?", a: "Venus", options: ["Mercurio", "Venus", "Marte"] },
+    { q: "¿Quién pintó 'La última cena'?", a: "Leonardo da Vinci", options: ["Miguel Ángel", "Leonardo da Vinci", "Rafael"] },
+    { q: "¿Cuál es el océano que baña las costas de Brasil?", a: "Atlántico", options: ["Pacífico", "Atlántico", "Índico"] },
+    { q: "¿Qué gas constituye la mayor parte de la atmósfera terrestre?", a: "Nitrógeno", options: ["Oxígeno", "Nitrógeno", "Argón"] },
+    { q: "¿Cuál es la capital de Argentina?", a: "Buenos Aires", options: ["Córdoba", "Rosario", "Buenos Aires"] },
+    { q: "¿Quién escribió 'La Ilíada'?", a: "Homero", options: ["Hesíodo", "Homero", "Píndaro"] },
+    { q: "¿Cuál es el animal más rápido en el agua?", a: "Pez vela", options: ["Tiburón mako", "Pez vela", "Delfín"] },
+    { q: "¿En qué país se encuentra la Gran Muralla?", a: "China", options: ["Japón", "China", "Mongolia"] },
+    { q: "¿Cuál es la capital de México?", a: "Ciudad de México", options: ["Guadalajara", "Monterrey", "Ciudad de México"] },
+    { q: "¿Qué científico propuso las leyes del movimiento?", a: "Isaac Newton", options: ["Albert Einstein", "Isaac Newton", "Galileo Galilei"] },
+    { q: "¿Cuál es el país con mayor superficie de Sudamérica?", a: "Brasil", options: ["Argentina", "Brasil", "Perú"] },
+    { q: "¿Quién escribió 'Crónica de una muerte anunciada'?", a: "Gabriel García Márquez", options: ["Isabel Allende", "Gabriel García Márquez", "Jorge Luis Borges"] },
+    { q: "¿Cuál es el elemento químico con el símbolo 'Fe'?", a: "Hierro", options: ["Flúor", "Fósforo", "Hierro"] },
+    { q: "¿En qué año se fundó la ONU?", a: "1945", options: ["1944", "1945", "1946"] },
+    { q: "¿Cuál es la capital de Portugal?", a: "Lisboa", options: ["Oporto", "Lisboa", "Coímbra"] },
+    { q: "¿Qué planeta tiene la mancha roja gigante?", a: "Júpiter", options: ["Marte", "Júpiter", "Saturno"] },
+    { q: "¿Quién pintó el techo de la Capilla Sixtina?", a: "Miguel Ángel", options: ["Leonardo da Vinci", "Miguel Ángel", "Rafael"] },
+    { q: "¿Cuál es el mar más salado del mundo?", a: "Mar Muerto", options: ["Mar Rojo", "Mar Muerto", "Mar Caspio"] },
+    { q: "¿Qué vitamina es buena para la vista?", a: "Vitamina A", options: ["Vitamina A", "Vitamina C", "Vitamina E"] },
+    { q: "¿Cuál es la capital de Egipto?", a: "El Cairo", options: ["Alejandría", "El Cairo", "Luxor"] },
+    { q: "¿Quién escribió 'El Aleph'?", a: "Jorge Luis Borges", options: ["Julio Cortázar", "Jorge Luis Borges", "Ernesto Sabato"] },
+    { q: "¿Cuál es el metal más conductor de la electricidad?", a: "Plata", options: ["Cobre", "Oro", "Plata"] },
+    { q: "¿En qué país se encuentran las pirámides de Giza?", a: "Egipto", options: ["México", "Egipto", "Perú"] },
+    { q: "¿Cuál es la capital de Colombia?", a: "Bogotá", options: ["Medellín", "Cali", "Bogotá"] },
+    { q: "¿Qué planeta es conocido como el 'gigante gaseoso'?", a: "Júpiter", options: ["Marte", "Júpiter", "Venus"] },
+    { q: "¿Quién escribió '1984'?", a: "George Orwell", options: ["Aldous Huxley", "George Orwell", "Ray Bradbury"] },
+    { q: "¿Cuál es el animal que tiene la gestación más larga?", a: "Elefante", options: ["Ballena", "Elefante", "Rinoceronte"] },
+    { q: "¿En qué año comenzó la Revolución Francesa?", a: "1789", options: ["1776", "1789", "1804"] },
+    { q: "¿Cuál es la capital de Grecia?", a: "Atenas", options: ["Esparta", "Atenas", "Tesalónica"] },
+    { q: "¿Qué científico descubrió la estructura del ADN?", a: "Watson y Crick", options: ["Watson y Crick", "Franklin y Wilkins", "Mendel"] },
+    { q: "¿Cuál es el país más grande de Centroamérica?", a: "Nicaragua", options: ["Guatemala", "Nicaragua", "Honduras"] },
+    { q: "¿Quién escribió 'La metamorfosis'?", a: "Franz Kafka", options: ["Thomas Mann", "Franz Kafka", "Hermann Hesse"] },
+    { q: "¿Cuál es el elemento químico con el símbolo 'Ag'?", a: "Plata", options: ["Oro", "Plata", "Aluminio"] },
+    { q: "¿En qué año se descubrió la penicilina?", a: "1928", options: ["1920", "1928", "1935"] },
+    { q: "¿Cuál es la capital de Turquía?", a: "Ankara", options: ["Estambul", "Ankara", "Esmirna"] },
+    { q: "¿Qué planeta tiene más lunas?", a: "Saturno", options: ["Júpiter", "Saturno", "Urano"] },
+    { q: "¿Quién pintó 'El grito'?", a: "Edvard Munch", options: ["Vincent van Gogh", "Edvard Munch", "Gustav Klimt"] },
+    { q: "¿Cuál es el río más caudaloso del mundo?", a: "Amazonas", options: ["Congo", "Nilo", "Amazonas"] },
+    { q: "¿Qué gas es el principal responsable del efecto invernadero?", a: "Dióxido de carbono", options: ["Metano", "Dióxido de carbono", "Vapor de agua"] },
+    { q: "¿Cuál es la capital de Chile?", a: "Santiago", options: ["Valparaíso", "Concepción", "Santiago"] },
+    { q: "¿Quién escribió 'Fausto'?", a: "Goethe", options: ["Schiller", "Goethe", "Heine"] },
+    { q: "¿Cuál es el animal más inteligente después del ser humano?", a: "Delfín", options: ["Chimpancé", "Delfín", "Elefante"] },
+    { q: "¿En qué año terminó la Guerra Civil Española?", a: "1939", options: ["1936", "1939", "1945"] },
+    { q: "¿Cuál es la capital de Perú?", a: "Lima", options: ["Cusco", "Arequipa", "Lima"] },
+    { q: "¿Qué científico propuso el modelo atómico actual?", a: "Schrödinger", options: ["Bohr", "Rutherford", "Schrödinger"] },
+    { q: "¿Cuál es el país más grande de Oceanía?", a: "Australia", options: ["Nueva Zelanda", "Papúa Nueva Guinea", "Australia"] },
+    { q: "¿Quién escribió 'Ulises'?", a: "James Joyce", options: ["Virginia Woolf", "James Joyce", "T.S. Eliot"] },
+    { q: "¿Cuál es el elemento químico con el símbolo 'Cu'?", a: "Cobre", options: ["Cobalto", "Cromo", "Cobre"] },
+    { q: "¿En qué año se lanzó el primer satélite artificial?", a: "1957", options: ["1955", "1957", "1961"] },
+    { q: "¿Cuál es la capital de India?", a: "Nueva Delhi", options: ["Bombay", "Nueva Delhi", "Calcuta"] },
+    { q: "¿Qué planeta es el más pequeño del sistema solar?", a: "Mercurio", options: ["Marte", "Mercurio", "Plutón"] },
+    { q: "¿Quién escribió 'Rayuela'?", a: "Julio Cortázar", options: ["Gabriel García Márquez", "Julio Cortázar", "Mario Vargas Llosa"] },
+    { q: "¿Cuál es el animal que puede cambiar de color?", a: "Camaleón", options: ["Pulpo", "Camaleón", "Sepia"] },
+    { q: "¿En qué año se inventó la imprenta?", a: "1440", options: ["1400", "1440", "1500"] },
+    { q: "¿Cuál es la capital de Suecia?", a: "Estocolmo", options: ["Gotemburgo", "Estocolmo", "Malmö"] },
+    { q: "¿Qué parte del cerebro controla el equilibrio?", a: "Cerebelo", options: ["Cerebro", "Cerebelo", "Tronco encefálico"] },
+    { q: "¿Cuál es el país más poblado de Europa?", a: "Rusia", options: ["Alemania", "Francia", "Rusia"] },
+    { q: "¿Quién escribió 'Los miserables'?", a: "Victor Hugo", options: ["Balzac", "Victor Hugo", "Stendhal"] },
+    { q: "¿Cuál es el elemento químico con el símbolo 'Hg'?", a: "Mercurio", options: ["Hidrógeno", "Helio", "Mercurio"] },
+    { q: "¿En qué año se descubrió América?", a: "1492", options: ["1488", "1492", "1500"] },
+    { q: "¿Cuál es la capital de Noruega?", a: "Oslo", options: ["Bergen", "Oslo", "Trondheim"] },
+    { q: "¿Qué planeta tiene la rotación más rápida?", a: "Júpiter", options: ["Tierra", "Júpiter", "Saturno"] },
+    { q: "¿Quién escribió 'Guerra y paz'?", a: "León Tolstói", options: ["Dostoievski", "León Tolstói", "Chéjov"] },
+    { q: "¿Cuál es el animal que tiene la lengua más larga?", a: "Camaleón", options: ["Oso hormiguero", "Camaleón", "Jirafa"] },
+    { q: "¿En qué año comenzó la Revolución Rusa?", a: "1917", options: ["1905", "1917", "1922"] },
+    { q: "¿Cuál es la capital de Suiza?", a: "Berna", options: ["Zúrich", "Ginebra", "Berna"] },
+    { q: "¿Qué científico descubrió el neutrón?", a: "James Chadwick", options: ["Rutherford", "Bohr", "James Chadwick"] },
+    { q: "¿Cuál es el país más grande de África por superficie?", a: "Argelia", options: ["Sudán", "Argelia", "Congo"] },
+    { q: "¿Quién escribió 'El proceso'?", a: "Franz Kafka", options: ["Brecht", "Franz Kafka", "Mann"] },
+    { q: "¿Cuál es el elemento químico con el símbolo 'Pb'?", a: "Plomo", options: ["Platino", "Plomo", "Paladio"] },
+    { q: "¿En qué año se fundó la ciudad de Roma?", a: "753 a.C.", options: ["500 a.C.", "753 a.C.", "1000 a.C."] },
+    { q: "¿Cuál es la capital de Holanda?", a: "Ámsterdam", options: ["La Haya", "Ámsterdam", "Róterdam"] },
+    { q: "¿Qué planeta tiene la órbita más larga?", a: "Neptuno", options: ["Urano", "Neptuno", "Plutón"] },
+    { q: "¿Quién escribió 'La divina comedia'?", a: "Dante Alighieri", options: ["Petrarca", "Dante Alighieri", "Boccaccio"] },
+    { q: "¿Cuál es el animal que puede volar hacia atrás?", a: "Colibrí", options: ["Murciélago", "Colibrí", "Libélula"] },
+    { q: "¿En qué año se inventó el teléfono?", a: "1876", options: ["1850", "1876", "1900"] },
+    { q: "¿Cuál es la capital de Bélgica?", a: "Bruselas", options: ["Amberes", "Bruselas", "Gante"] },
+    { q: "¿Qué parte de la planta realiza la fotosíntesis?", a: "Hojas", options: ["Raíz", "Tallo", "Hojas"] },
+    { q: "¿Cuál es el país más grande de Asia?", a: "Rusia", options: ["China", "India", "Rusia"] },
+    { q: "¿Quién escribió 'El retrato de Dorian Gray'?", a: "Oscar Wilde", options: ["Bram Stoker", "Oscar Wilde", "Mary Shelley"] }
+  ];
+
+  const checkLimit = (gameId: 'luck' | 'memory' | 'trivia') => {
+    const today = new Date().toISOString().split('T')[0];
+    const stats = profile.dailyPlays || { lastDate: today, luck: 0, memory: 0, trivia: 0 };
+    
+    if (stats.lastDate !== today) {
+      return true; // New day, reset happens on update
+    }
+    
+    if (stats[gameId] >= 3) {
+      setError(`Has alcanzado el límite de 3 partidas diarias para este juego. 🦊`);
+      return false;
+    }
+    return true;
+  };
+
+  const incrementPlays = async (gameId: 'luck' | 'memory' | 'trivia') => {
+    const today = new Date().toISOString().split('T')[0];
+    let stats = profile.dailyPlays || { lastDate: today, luck: 0, memory: 0, trivia: 0 };
+    
+    if (stats.lastDate !== today) {
+      stats = { lastDate: today, luck: 0, memory: 0, trivia: 0 };
+    }
+    
+    stats[gameId] += 1;
+    await updateDoc(doc(db, 'users', profile.uid), { dailyPlays: stats });
+  };
 
   const startLuckGame = () => {
+    if (!checkLimit('luck')) return;
     setActiveGame('luck');
     setGameState({ chests: [0, 1, 2].sort(() => Math.random() - 0.5) });
     setResult(null);
@@ -2324,6 +2507,7 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
   const handleLuckChoice = async (idx: number) => {
     if (!playing) return;
     setPlaying(false);
+    await incrementPlays('luck');
     const outcomes = [
       { win: true, amount: 50, msg: "¡Increíble! Encontraste el tesoro real. +50 CupiraCoins" },
       { win: false, amount: 0, msg: "El cofre estaba vacío... Mejor suerte la próxima." },
@@ -2335,15 +2519,25 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
   };
 
   const startMemoryGame = () => {
+    if (!checkLimit('memory')) return;
     const emojis = ['🍎', '🍌', '🍇', '🍓', '🍒', '🥝'];
     const sequence = Array.from({ length: 4 }, () => emojis[Math.floor(Math.random() * emojis.length)]);
     setActiveGame('memory');
     setGameState({ sequence, userSequence: [], showSequence: true });
     setResult(null);
     setPlaying(true);
-    setTimeout(() => {
-      setGameState((prev: any) => ({ ...prev, showSequence: false }));
-    }, 3000);
+    setTimer(3);
+    
+    const interval = setInterval(() => {
+      setTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setGameState((p: any) => ({ ...p, showSequence: false }));
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
   const handleMemoryClick = async (emoji: string) => {
@@ -2351,8 +2545,11 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
     const newUserSeq = [...gameState.userSequence, emoji];
     const currentIndex = gameState.userSequence.length;
     
+    setGameState((prev: any) => ({ ...prev, userSequence: newUserSeq }));
+
     if (emoji !== gameState.sequence[currentIndex]) {
       setPlaying(false);
+      await incrementPlays('memory');
       await updateCoins(profile.uid, -20);
       setResult({ win: false, message: "Secuencia incorrecta. -20 CupiraCoins" });
       return;
@@ -2360,21 +2557,15 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
 
     if (newUserSeq.length === gameState.sequence.length) {
       setPlaying(false);
+      await incrementPlays('memory');
       await updateCoins(profile.uid, 40);
       setResult({ win: true, message: "¡Memoria perfecta! +40 CupiraCoins" });
-    } else {
-      setGameState((prev: any) => ({ ...prev, userSequence: newUserSeq }));
     }
   };
 
   const startTriviaGame = () => {
-    const questions = [
-      { q: "¿Cuál es el planeta más grande?", a: "Jupiter", options: ["Marte", "Jupiter", "Saturno"] },
-      { q: "¿Cuántos minutos tiene una hora?", a: "60", options: ["50", "60", "100"] },
-      { q: "¿Color de la esmeralda?", a: "Verde", options: ["Rojo", "Azul", "Verde"] },
-      { q: "¿Qué animal es el mejor amigo del hombre?", a: "Perro", options: ["Gato", "Perro", "Caballo"] }
-    ];
-    const question = questions[Math.floor(Math.random() * questions.length)];
+    if (!checkLimit('trivia')) return;
+    const question = TRIVIA_QUESTIONS[Math.floor(Math.random() * TRIVIA_QUESTIONS.length)];
     setActiveGame('trivia');
     setGameState({ ...question });
     setResult(null);
@@ -2384,6 +2575,7 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
   const handleTriviaAnswer = async (ans: string) => {
     if (!playing) return;
     setPlaying(false);
+    await incrementPlays('trivia');
     if (ans === gameState.a) {
       await updateCoins(profile.uid, 30);
       setResult({ win: true, message: "¡Correcto! +30 CupiraCoins" });
@@ -2392,6 +2584,9 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
       setResult({ win: false, message: `Incorrecto. Era ${gameState.a}. -15 CupiraCoins` });
     }
   };
+
+  const today = new Date().toISOString().split('T')[0];
+  const stats = profile.dailyPlays?.lastDate === today ? profile.dailyPlays : { luck: 0, memory: 0, trivia: 0 };
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 pb-32">
@@ -2410,17 +2605,20 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
       {!activeGame ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
-            { id: 'luck', name: 'Cofres de Suerte', icon: '🎁', desc: 'Elige un cofre. ¡Cuidado con las trampas!', start: startLuckGame },
-            { id: 'memory', name: 'Emoji Memory', icon: '🧠', desc: 'Repite la secuencia de emojis.', start: startMemoryGame },
-            { id: 'trivia', name: 'Trivia Veloz', icon: '⚡', desc: 'Responde rápido y gana.', start: startTriviaGame }
+            { id: 'luck', name: 'Cofres de Suerte', icon: '🎁', desc: 'Elige un cofre de color.', plays: stats.luck, start: startLuckGame },
+            { id: 'memory', name: 'Emoji Memory', icon: '🧠', desc: 'Repite la secuencia.', plays: stats.memory, start: startMemoryGame },
+            { id: 'trivia', name: 'Trivia Veloz', icon: '⚡', desc: '150+ preguntas difíciles.', plays: stats.trivia, start: startTriviaGame }
           ].map(game => (
             <motion.button
               key={game.id}
               whileHover={{ scale: 1.02, y: -5 }}
               whileTap={{ scale: 0.98 }}
               onClick={game.start}
-              className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/10 text-center group hover:bg-zinc-800/80 transition-all"
+              className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/10 text-center group hover:bg-zinc-800/80 transition-all relative"
             >
+              <div className="absolute top-4 right-4 bg-zinc-800 px-2 py-1 rounded-lg text-[8px] font-black text-zinc-400">
+                {game.plays}/3 HOY
+              </div>
               <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">{game.icon}</div>
               <h3 className="text-lg font-black text-white mb-2">{game.name}</h3>
               <p className="text-zinc-500 text-xs font-medium">{game.desc}</p>
@@ -2435,7 +2633,7 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
         >
           <button 
             onClick={() => setActiveGame(null)} 
-            className="absolute top-6 right-6 p-2 bg-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-all"
+            className="absolute top-6 right-6 p-2 bg-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-all z-10"
           >
             <X size={20} />
           </button>
@@ -2443,46 +2641,71 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
           {activeGame === 'luck' && (
             <div className="space-y-8">
               <h2 className="text-2xl font-black text-white">Elige un Cofre</h2>
-              <div className="flex justify-center gap-4">
-                {[0, 1, 2].map(i => (
+              <div className="flex justify-center gap-6">
+                {[
+                  { color: 'bg-blue-600', shadow: 'shadow-blue-600/40' },
+                  { color: 'bg-red-600', shadow: 'shadow-red-600/40' },
+                  { color: 'bg-zinc-950', shadow: 'shadow-white/5' }
+                ].map((c, i) => (
                   <motion.button
                     key={i}
                     whileHover={playing ? { scale: 1.1, y: -10 } : {}}
                     whileTap={playing ? { scale: 0.9 } : {}}
                     onClick={() => handleLuckChoice(i)}
-                    className={`text-6xl p-6 rounded-3xl transition-all ${!playing ? 'opacity-50 grayscale' : 'bg-zinc-800 hover:bg-zinc-700'}`}
+                    className={`w-24 h-24 rounded-3xl transition-all flex items-center justify-center text-4xl shadow-2xl ${c.color} ${c.shadow} ${!playing ? 'opacity-50 grayscale' : 'border-4 border-white/10 hover:border-white/30'}`}
                   >
-                    📦
+                    <div className="relative">
+                      📦
+                      {!playing && gameState.chests[i] === 0 && <span className="absolute -top-2 -right-2 text-xl">✨</span>}
+                      {!playing && gameState.chests[i] === 2 && <span className="absolute -top-2 -right-2 text-xl">💀</span>}
+                    </div>
                   </motion.button>
                 ))}
+              </div>
+              <div className="flex justify-center gap-8 text-[10px] font-black text-zinc-500 uppercase tracking-widest">
+                <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-600"></div> Azul</span>
+                <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-600"></div> Rojo</span>
+                <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-zinc-950 border border-white/20"></div> Negro</span>
               </div>
             </div>
           )}
 
           {activeGame === 'memory' && (
             <div className="space-y-8">
-              <h2 className="text-2xl font-black text-white">
-                {gameState.showSequence ? 'Memoriza la secuencia...' : '¡Tu turno! Repite los emojis'}
-              </h2>
+              <div className="relative">
+                <h2 className="text-2xl font-black text-white">
+                  {gameState.showSequence ? 'Memoriza la secuencia...' : '¡Tu turno! Repite los emojis'}
+                </h2>
+                {gameState.showSequence && (
+                  <div className="mt-2 text-red-500 font-black text-xl animate-pulse">
+                    {timer}s
+                  </div>
+                )}
+              </div>
+              
               <div className="flex justify-center gap-4 min-h-[80px]">
                 {(gameState.showSequence ? gameState.sequence : gameState.userSequence).map((e: string, i: number) => (
                   <motion.span 
                     key={i} 
                     initial={{ scale: 0 }} 
                     animate={{ scale: 1 }} 
-                    className="text-4xl bg-zinc-800 p-4 rounded-2xl"
+                    className={`text-4xl p-4 rounded-2xl border-2 transition-all ${gameState.showSequence ? 'bg-zinc-800 border-white/10' : 'bg-red-600/20 border-red-600'}`}
                   >
                     {e}
                   </motion.span>
                 ))}
+                {!gameState.showSequence && Array.from({ length: gameState.sequence.length - gameState.userSequence.length }).map((_, i) => (
+                  <div key={i} className="w-16 h-16 bg-zinc-800/50 rounded-2xl border-2 border-dashed border-white/5"></div>
+                ))}
               </div>
+
               {!gameState.showSequence && playing && (
                 <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
                   {['🍎', '🍌', '🍇', '🍓', '🍒', '🥝'].map(e => (
                     <button 
                       key={e} 
                       onClick={() => handleMemoryClick(e)}
-                      className="text-3xl bg-zinc-800 p-4 rounded-2xl hover:bg-red-600 transition-all active:scale-90"
+                      className={`text-3xl p-4 rounded-2xl transition-all active:scale-90 border-2 ${gameState.userSequence.includes(e) ? 'bg-red-600 border-white/20' : 'bg-zinc-800 border-white/5 hover:bg-zinc-700'}`}
                     >
                       {e}
                     </button>
@@ -2494,13 +2717,15 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
 
           {activeGame === 'trivia' && (
             <div className="space-y-8">
-              <h2 className="text-2xl font-black text-white px-4">{gameState.q}</h2>
+              <div className="bg-zinc-800/50 p-6 rounded-[2rem] border border-white/5">
+                <h2 className="text-xl md:text-2xl font-black text-white px-4 leading-tight">{gameState.q}</h2>
+              </div>
               <div className="grid grid-cols-1 gap-3 max-w-sm mx-auto">
                 {gameState.options.map((opt: string) => (
                   <button 
                     key={opt} 
                     onClick={() => handleTriviaAnswer(opt)}
-                    className="w-full py-4 bg-zinc-800 text-white rounded-2xl font-black hover:bg-red-600 transition-all active:scale-95 border border-white/5"
+                    className="w-full py-4 bg-zinc-800 text-white rounded-2xl font-black hover:bg-red-600 transition-all active:scale-95 border border-white/5 shadow-lg"
                   >
                     {opt}
                   </button>
@@ -2513,14 +2738,14 @@ function GamesView({ profile, updateCoins, setError, setSuccessMessage }: { prof
             <motion.div 
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              className={`mt-8 p-6 rounded-2xl font-black ${result.win ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}
+              className={`mt-8 p-6 rounded-[2rem] font-black border-2 ${result.win ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}
             >
               <p className="text-lg mb-4">{result.message}</p>
               <button 
                 onClick={() => setActiveGame(null)}
-                className="px-8 py-2 bg-white text-zinc-900 rounded-xl text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all"
+                className="px-8 py-3 bg-white text-zinc-900 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-xl"
               >
-                Volver
+                Continuar
               </button>
             </motion.div>
           )}
