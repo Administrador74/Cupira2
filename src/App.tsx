@@ -2867,12 +2867,12 @@ function ShopView({ pets, profile, updateCoins, updateDiamonds, setError, setSuc
       ...p, 
       type: 'pet',
       icon: (
-        <div className="w-24 h-24 md:w-32 md:h-32 mx-auto flex items-center justify-center p-2">
+        <div className="w-24 h-24 md:w-32 md:h-32 mx-auto flex items-center justify-center">
           <img 
             key={p.image} 
             src={p.image} 
             referrerPolicy="no-referrer"
-            className="w-full h-full object-contain drop-shadow-2xl transition-transform group-hover:scale-110 duration-500" 
+            className="w-20 h-20 md:w-24 md:h-24 object-contain drop-shadow-2xl transition-transform group-hover:scale-110 duration-500" 
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               const originalUrl = p.image;
@@ -3838,7 +3838,7 @@ function PetDisplay({ pets, petId }: { pets: Pet[], petId: string }) {
             src={pet.image} 
             alt={pet.name} 
             referrerPolicy="no-referrer"
-            className="w-full h-full object-contain drop-shadow-[0_25px_50px_rgba(0,0,0,0.7)]"
+            className="w-32 h-32 md:w-48 md:h-48 object-contain drop-shadow-[0_25px_50px_rgba(0,0,0,0.7)]"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               const originalUrl = pet.image;
