@@ -1,6 +1,7 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * CupiraApp v1.0.1 - Updated Pets Integration
  */
 
 import React, { useState, useEffect, useRef, memo } from 'react';
@@ -2814,7 +2815,7 @@ function ShopView({ profile, updateCoins, updateDiamonds, setError, setSuccessMe
     { id: 'follow_request', name: 'Solicitud de Seguir', description: 'Sistema de seguimiento por aprobación.', cost: 400, icon: '🤝', currency: 'coins' },
     { id: 'diamond_pack_1', name: 'Pack 10 Diamantes', description: 'DiamantesCoint para funciones exclusivas.', cost: 5000, icon: '💎', currency: 'coins' },
     { id: 'premium_status', name: 'Estatus Diamante', description: 'Acceso total a la versión paga de CupiraApp.', cost: 50, icon: '💠', currency: 'diamonds' },
-    ...PETS.map(p => ({ ...p, icon: <img src={p.image} className="w-12 h-12 object-contain mx-auto" referrerPolicy="no-referrer" /> })),
+    ...PETS.map(p => ({ ...p, icon: <img key={p.image} src={p.image} className="w-12 h-12 object-contain mx-auto" referrerPolicy="no-referrer" /> })),
   ];
 
   const handleBuy = async (prize: any) => {
@@ -2881,7 +2882,7 @@ function ShopView({ profile, updateCoins, updateDiamonds, setError, setSuccessMe
         >
           <ShoppingBag size={32} className="text-zinc-900" strokeWidth={2.5} />
         </motion.div>
-        <h1 className="text-3xl font-black text-white tracking-tighter mb-2">Tienda CupiraApp</h1>
+        <h1 className="text-3xl font-black text-white tracking-tighter mb-2">Tienda CupiraApp ✨</h1>
         <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Canjea tus CupiraCoins y DiamantesCoint</p>
       </div>
 
@@ -3685,16 +3686,22 @@ function UsersListView({ onUserClick }: { onUserClick: (uid: string) => void }) 
 // --- Admin Users View ---
 
 const PETS = [
-  { id: 'pet_purple_cat', name: 'Gatita Morada', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/b8229879-1300-4786-905c-3738596659c0.png', cost: 150, currency: 'diamonds', description: 'Una gatita morada muy tierna.' },
-  { id: 'pet_pink_school', name: 'Estudiante Rosa', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/76866879-1300-4786-905c-3738596659c0.png', cost: 150, currency: 'diamonds', description: 'Compañera de estudios.' },
-  { id: 'pet_jiraiya', name: 'Sabio Chibi', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/69866879-1300-4786-905c-3738596659c0.png', cost: 200, currency: 'diamonds', description: 'Un sabio legendario en miniatura.' },
-  { id: 'pet_shark_girl', name: 'Tiburón Girl', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/e045a794-6880-4573-8902-18451f211322.png', cost: 200, currency: 'diamonds', description: 'Valiente exploradora marina.' },
-  { id: 'pet_artist_girl', name: 'Artista Chibi', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/87a99602-0941-4712-9c42-2b6228308876.png', cost: 180, currency: 'diamonds', description: 'Te ayudará con tus dibujos.' },
-  { id: 'pet_pink_bells', name: 'Dama de Flores', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/33499440-230f-48e0-a7d1-04279093226a.png', cost: 180, currency: 'diamonds', description: 'Elegancia y pétalos.' },
-  { id: 'pet_bunny_girl', name: 'Conejita Chibi', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/8604856f-656f-40e1-88f2-89587f7a635a.png', cost: 150, currency: 'diamonds', description: 'Tierna y saltarina.' },
-  { id: 'pet_rainbow_cat', name: 'Gatita Arcoíris', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/972688f9-4d9f-4315-9921-2771761612e4.png', cost: 150, currency: 'diamonds', description: 'Colores por todos lados.' },
-  { id: 'pet_cool_boy', name: 'Chico Cool', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/14101e69-0521-4993-9467-96a943a50239.png', cost: 150, currency: 'diamonds', description: 'Todo está bajo control.' },
-  { id: 'pet_devil_boy', name: 'Diablillo Boy', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/2680879f-067d-4171-9257-817865809117.png', cost: 200, currency: 'diamonds', description: 'Un toque travieso.' },
+  { id: 'pet_purple_boba', name: 'Gatita Boba', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/b8229879-1300-4786-905c-3738596659c0.png', cost: 150, currency: 'diamonds', description: 'Le encanta el boba tea.' },
+  { id: 'pet_pink_sitting', name: 'Niña Rosa', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/76866879-1300-4786-905c-3738596659c0.png', cost: 150, currency: 'diamonds', description: 'Una compañía tranquila.' },
+  { id: 'pet_jiraiya', name: 'Sabio Chibi', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/69866879-1300-4786-905c-3738596659c0.png', cost: 200, currency: 'diamonds', description: 'El sabio legendario.' },
+  { id: 'pet_gura', name: 'Tiburoncina', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/e045a794-6880-4573-8902-18451f211322.png', cost: 200, currency: 'diamonds', description: '¡Aaaaah! Tiburón.' },
+  { id: 'pet_artist', name: 'Pequeña Artista', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/87a99602-0941-4712-9c42-2b6228308876.png', cost: 180, currency: 'diamonds', description: 'Siempre dibujando.' },
+  { id: 'pet_flower_girl', name: 'Dama Floral', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/33499440-230f-48e0-a7d1-04279093226a.png', cost: 180, currency: 'diamonds', description: 'Elegancia y pétalos.' },
+  { id: 'pet_bunny_hoodie', name: 'Conejita Blanca', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/8604856f-656f-40e1-88f2-89587f7a635a.png', cost: 150, currency: 'diamonds', description: 'Tierna y saltarina.' },
+  { id: 'pet_rainbow_streak', name: 'Gatita Arcoíris', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/972688f9-4d9f-4315-9921-2771761612e4.png', cost: 150, currency: 'diamonds', description: 'Colores por todos lados.' },
+  { id: 'pet_thumbs_up', name: 'Chico Genial', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/14101e69-0521-4993-9467-96a943a50239.png', cost: 150, currency: 'diamonds', description: 'Todo está bajo control.' },
+  { id: 'pet_devil_suit', name: 'Diablillo Elegante', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/2680879f-067d-4171-9257-817865809117.png', cost: 200, currency: 'diamonds', description: 'Un toque travieso.' },
+  { id: 'pet_cat_hoodie', name: 'Gatita Hoodie', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/9c229879-1300-4786-905c-3738596659c0.png', cost: 150, currency: 'diamonds', description: 'Cómoda y tierna.' },
+  { id: 'pet_anya', name: 'Anya Chibi', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/ac229879-1300-4786-905c-3738596659c0.png', cost: 200, currency: 'diamonds', description: '¡Waku waku!' },
+  { id: 'pet_strawberry', name: 'Gatita Fresa', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/bc229879-1300-4786-905c-3738596659c0.png', cost: 150, currency: 'diamonds', description: 'Dulce como una fresa.' },
+  { id: 'pet_cinnamoroll_girl', name: 'Cinnamoroll Girl', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/cc229879-1300-4786-905c-3738596659c0.png', cost: 150, currency: 'diamonds', description: 'Suave como una nube.' },
+  { id: 'pet_shark_boy', name: 'Tiburón Boy', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/dc229879-1300-4786-905c-3738596659c0.png', cost: 200, currency: 'diamonds', description: 'Explorador marino.' },
+  { id: 'pet_devil_girl_white', name: 'Diablilla Blanca', image: 'https://storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/ec229879-1300-4786-905c-3738596659c0.png', cost: 200, currency: 'diamonds', description: 'Misteriosa y poderosa.' },
 ];
 
 function PetDisplay({ petId }: { petId: string }) {
@@ -3742,6 +3749,7 @@ function PetDisplay({ petId }: { petId: string }) {
           className="relative w-28 h-28 md:w-36 md:h-36 flex items-center justify-center"
         >
           <img 
+            key={pet.image}
             src={pet.image} 
             alt={pet.name} 
             className="w-full h-full object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]"
