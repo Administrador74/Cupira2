@@ -69,3 +69,12 @@ export interface Conversation {
   lastTimestamp: any;
   unreadCount?: { [uid: string]: number };
 }
+
+export interface Pet {
+  id: string;
+  name: string;
+  image: string;
+  cost: number;
+  currency: 'coins' | 'diamonds';
+  description: string;
+}

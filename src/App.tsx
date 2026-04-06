@@ -32,7 +32,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { User, Post, Follow, Comment, Message, Conversation } from './types';
+import { User, Post, Follow, Comment, Message, Conversation, Pet } from './types';
 import { GoogleGenAI } from "@google/genai";
 import { 
   LogOut, 
@@ -60,7 +60,9 @@ import {
   Bell,
   Gamepad2,
   Sparkles,
-  ShoppingBag
+  ShoppingBag,
+  Plus,
+  Edit2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -134,10 +136,41 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'login' | 'register' | 'main' | 'profile' | 'search' | 'other-profile' | 'messages' | 'admin-messages' | 'users-list' | 'shop' | 'admin-users' | 'games'>('login');
+  const [view, setView] = useState<'login' | 'register' | 'main' | 'profile' | 'search' | 'other-profile' | 'messages' | 'admin-messages' | 'users-list' | 'shop' | 'admin-users' | 'admin-pets' | 'games'>('login');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [chatTargetId, setChatTargetId] = useState<string | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [pets, setPets] = useState<Pet[]>([]);
+
+  // --- Pets Logic ---
+  useEffect(() => {
+    const q = query(collection(db, 'pets'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const petsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pet));
+      setPets(petsData);
+    }, (error) => {
+      console.error("Error fetching pets:", error);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const seedPets = async () => {
+      const q = query(collection(db, 'pets'), limit(1));
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        console.log("Seeding initial pets...");
+        for (const pet of PETS) {
+          const { id, ...petData } = pet;
+          await addDoc(collection(db, 'pets'), {
+            ...petData,
+            createdAt: serverTimestamp()
+          });
+        }
+      }
+    };
+    if (user) seedPets();
+  }, [user]);
 
   // --- Theme Logic ---
   useEffect(() => {
@@ -504,8 +537,9 @@ export default function App() {
                   {view === 'messages' && <MessagesView profile={profile} setView={setView} onChatSelect={(uid) => setChatTargetId(uid)} />}
                   {view === 'admin-messages' && <AdminMessagesView onChatSelect={(u1, u2) => setChatTargetId(`${u1}_${u2}`)} />}
                   {view === 'admin-users' && <AdminUsersView onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} setError={setError} setSuccessMessage={setSuccessMessage} />}
+                  {view === 'admin-pets' && <AdminPetsView pets={pets} setError={setError} setSuccessMessage={setSuccessMessage} />}
                   {view === 'users-list' && <UsersListView onUserClick={(uid) => { setSelectedUserId(uid); setView('other-profile'); }} />}
-                  {view === 'shop' && <ShopView profile={profile} updateCoins={updateCoins} updateDiamonds={updateDiamonds} setError={setError} setSuccessMessage={setSuccessMessage} />}
+                  {view === 'shop' && <ShopView pets={pets} profile={profile} updateCoins={updateCoins} updateDiamonds={updateDiamonds} setError={setError} setSuccessMessage={setSuccessMessage} />}
                   {view === 'games' && <GamesView profile={profile} updateCoins={updateCoins} updateDiamonds={updateDiamonds} setError={setError} setSuccessMessage={setSuccessMessage} />}
                   {view === 'other-profile' && selectedUserId && (
                     <ProfileView 
@@ -520,8 +554,7 @@ export default function App() {
                   )}
                 </motion.div>
               </AnimatePresence>
-
-              {profile.activePet && <PetDisplay petId={profile.activePet} />}
+              {profile.activePet && <PetDisplay pets={pets} petId={profile.activePet} />}
             </main>
             <AnimatePresence>
               {chatTargetId && profile && (
@@ -1905,7 +1938,10 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, show
     { id: 'games', icon: Gamepad2, label: 'Juegos' },
     { id: 'profile', icon: UserIcon, label: 'Perfil' },
     ...(profile?.inventory?.includes('user_list_access') ? [{ id: 'users-list', icon: Users, label: 'Exploradores' }] : []),
-    ...(isAdmin ? [{ id: 'admin-users', icon: ShieldCheck, label: 'Admin' }] : [])
+    ...(isAdmin ? [
+      { id: 'admin-users', icon: ShieldCheck, label: 'Admin Usuarios' },
+      { id: 'admin-pets', icon: Sparkles, label: 'Admin Mascotas' }
+    ] : [])
   ];
 
   return (
@@ -2804,7 +2840,7 @@ function GamesView({ profile, updateCoins, updateDiamonds, setError, setSuccessM
   );
 }
 
-function ShopView({ profile, updateCoins, updateDiamonds, setError, setSuccessMessage }: { profile: User, updateCoins: (uid: string, amount: number) => Promise<void>, updateDiamonds: (uid: string, amount: number) => Promise<void>, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
+function ShopView({ pets, profile, updateCoins, updateDiamonds, setError, setSuccessMessage }: { pets: Pet[], profile: User, updateCoins: (uid: string, amount: number) => Promise<void>, updateDiamonds: (uid: string, amount: number) => Promise<void>, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
   const prizes = [
     { id: 'badge_unique', name: 'Insignia Única', description: 'Una estrella dorada al lado de tu nombre.', cost: 300, icon: '⭐', currency: 'coins' },
     { id: 'profile_frame', name: 'Marco de Avatar', description: 'Un borde brillante para tu foto de perfil.', cost: 500, icon: '🖼️', currency: 'coins' },
@@ -2815,7 +2851,7 @@ function ShopView({ profile, updateCoins, updateDiamonds, setError, setSuccessMe
     { id: 'follow_request', name: 'Solicitud de Seguir', description: 'Sistema de seguimiento por aprobación.', cost: 400, icon: '🤝', currency: 'coins' },
     { id: 'diamond_pack_1', name: 'Pack 10 Diamantes', description: 'DiamantesCoint para funciones exclusivas.', cost: 5000, icon: '💎', currency: 'coins' },
     { id: 'premium_status', name: 'Estatus Diamante', description: 'Acceso total a la versión paga de CupiraApp.', cost: 50, icon: '💠', currency: 'diamonds' },
-    ...PETS.map(p => ({ 
+    ...pets.map(p => ({ 
       ...p, 
       icon: (
         <img 
@@ -3719,8 +3755,8 @@ const PETS = [
   { id: 'pet_devil_girl_white', name: 'Diablilla Blanca', image: 'https://images.weserv.nl/?url=storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/ec229879-1300-4786-905c-3738596659c0.png', cost: 200, currency: 'diamonds', description: 'Misteriosa y poderosa.' },
 ];
 
-function PetDisplay({ petId }: { petId: string }) {
-  const pet = PETS.find(p => p.id === petId);
+function PetDisplay({ pets, petId }: { pets: Pet[], petId: string }) {
+  const pet = pets.find(p => p.id === petId);
   if (!pet) return null;
 
   return (
@@ -3770,7 +3806,6 @@ function PetDisplay({ petId }: { petId: string }) {
             className="w-full h-full object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
-              // Si falla el proxy, intentamos la URL original como último recurso
               if (target.src.includes('weserv.nl')) {
                 target.src = pet.image.replace('https://images.weserv.nl/?url=', 'https://');
               }
@@ -3778,17 +3813,14 @@ function PetDisplay({ petId }: { petId: string }) {
           />
         </motion.div>
         
-        {/* Shadow effect on floor */}
-        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-20 h-3 bg-black/30 blur-lg rounded-full" />
-        
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-zinc-900/90 backdrop-blur-xl border border-white/10 px-4 py-1.5 rounded-2xl opacity-0 group-hover:opacity-100 transition-all shadow-2xl pointer-events-none whitespace-nowrap">
-          <p className="text-[10px] font-black text-white uppercase tracking-[0.2em]">{pet.name}</p>
-          <p className="text-[8px] font-bold text-zinc-500 uppercase text-center">¡Hola! ✨</p>
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+          <p className="text-[10px] font-black text-white uppercase tracking-widest">{pet.name}</p>
         </div>
       </div>
     </motion.div>
   );
 }
+
 
 function AdminUsersView({ onUserClick, setError, setSuccessMessage }: { onUserClick: (uid: string) => void, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -3984,6 +4016,168 @@ function AdminUsersView({ onUserClick, setError, setSuccessMessage }: { onUserCl
             <p className="text-zinc-600 font-black text-xl uppercase tracking-[0.2em] italic">No se encontraron usuarios</p>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function AdminPetsView({ pets, setError, setSuccessMessage }: { pets: Pet[], setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
+  const [name, setName] = useState('');
+  const [image, setImage] = useState('');
+  const [cost, setCost] = useState(150);
+  const [description, setDescription] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAddPet = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !image) {
+      setError("Nombre e imagen son obligatorios.");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await addDoc(collection(db, 'pets'), {
+        name,
+        image,
+        cost: Number(cost),
+        currency: 'diamonds',
+        description,
+        createdAt: serverTimestamp()
+      });
+      setSuccessMessage("MASCOTA AÑADIDA");
+      setName('');
+      setImage('');
+      setCost(150);
+      setDescription('');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'pets');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeletePet = async (id: string) => {
+    if (!window.confirm("¿Eliminar esta mascota?")) return;
+    try {
+      await deleteDoc(doc(db, 'pets', id));
+      setSuccessMessage("MASCOTA ELIMINADA");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, 'pets');
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="space-y-8 pb-20">
+      <div className="flex items-center justify-between mb-10 px-4">
+        <h1 className="text-5xl font-black text-white tracking-tighter uppercase">Mascotas</h1>
+        <div className="bg-red-600/20 text-red-500 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest border border-red-500/10">
+          {pets.length} Disponibles
+        </div>
+      </div>
+
+      <div className="bg-zinc-900/50 p-8 rounded-[2.5rem] border border-white/5 backdrop-blur-xl">
+        <h2 className="text-2xl font-black text-white mb-6 flex items-center gap-3 uppercase tracking-tighter">
+          <PlusCircle className="text-red-500" /> Añadir Nueva Mascota
+        </h2>
+        <form onSubmit={handleAddPet} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-2">Nombre</label>
+            <input 
+              value={name} 
+              onChange={e => setName(e.target.value)}
+              className="w-full bg-zinc-800/50 border border-white/5 p-4 rounded-2xl text-white font-bold outline-none focus:ring-2 focus:ring-red-500 transition-all"
+              placeholder="Ej: Gatito Ninja"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-2">Precio (Diamantes)</label>
+            <input 
+              type="number"
+              value={cost} 
+              onChange={e => setCost(Number(e.target.value))}
+              className="w-full bg-zinc-800/50 border border-white/5 p-4 rounded-2xl text-white font-bold outline-none focus:ring-2 focus:ring-red-500 transition-all"
+            />
+          </div>
+          <div className="md:col-span-2 space-y-2">
+            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-2">Descripción</label>
+            <input 
+              value={description} 
+              onChange={e => setDescription(e.target.value)}
+              className="w-full bg-zinc-800/50 border border-white/5 p-4 rounded-2xl text-white font-bold outline-none focus:ring-2 focus:ring-red-500 transition-all"
+              placeholder="Breve descripción..."
+            />
+          </div>
+          <div className="md:col-span-2 space-y-2">
+            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-2">Imagen (URL o Subir)</label>
+            <div className="flex flex-col md:flex-row gap-4">
+              <input 
+                value={image} 
+                onChange={e => setImage(e.target.value)}
+                className="flex-1 bg-zinc-800/50 border border-white/5 p-4 rounded-2xl text-white font-bold outline-none focus:ring-2 focus:ring-red-500 transition-all"
+                placeholder="https://..."
+              />
+              <button 
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-zinc-700 hover:bg-zinc-600 text-white px-8 py-4 rounded-2xl font-black transition-all uppercase text-xs tracking-widest"
+              >
+                SUBIR ARCHIVO
+              </button>
+              <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+            </div>
+            {image && (
+              <div className="mt-6 p-8 bg-zinc-800/50 rounded-[2rem] border border-white/5 flex justify-center">
+                <img src={image} className="h-40 object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]" alt="Preview" />
+              </div>
+            )}
+          </div>
+          <button 
+            disabled={isSubmitting}
+            className="md:col-span-2 bg-gradient-to-r from-red-600 to-pink-600 hover:scale-[1.02] active:scale-95 text-white py-5 rounded-2xl font-black text-xl transition-all shadow-2xl shadow-red-600/30 uppercase tracking-tighter"
+          >
+            {isSubmitting ? "AÑADIENDO..." : "AÑADIR MASCOTA A LA TIENDA"}
+          </button>
+        </form>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {pets.map(pet => (
+          <motion.div 
+            key={pet.id} 
+            whileHover={{ y: -10 }}
+            className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] border border-white/10 flex flex-col items-center text-center group shadow-2xl"
+          >
+            <div className="w-32 h-32 mb-6 flex items-center justify-center relative">
+              <div className="absolute inset-0 bg-red-600/10 blur-3xl rounded-full group-hover:bg-red-600/20 transition-all"></div>
+              <img src={pet.image} className="w-full h-full object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform duration-500" />
+            </div>
+            <h3 className="text-xl font-black text-white tracking-tight">{pet.name}</h3>
+            <div className="flex items-center gap-2 mt-2 mb-6">
+              <div className="w-5 h-5 bg-cyan-500 rounded-full flex items-center justify-center">
+                <span className="text-[8px] font-black text-zinc-900">D</span>
+              </div>
+              <span className="text-sm font-black text-cyan-500">{pet.cost}</span>
+            </div>
+            <button 
+              onClick={() => handleDeletePet(pet.id)}
+              className="mt-auto w-full bg-zinc-800/50 hover:bg-red-600 text-zinc-500 hover:text-white py-4 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 uppercase tracking-widest border border-white/5"
+            >
+              <Trash2 size={16} /> ELIMINAR MASCOTA
+            </button>
+          </motion.div>
+        ))}
       </div>
     </div>
   );
