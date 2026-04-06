@@ -144,18 +144,28 @@ export default function App() {
 
   // --- Pets Logic ---
   useEffect(() => {
-    const q = query(collection(db, 'pets'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'pets'));
     const unsub = onSnapshot(q, (snap) => {
       const petsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pet));
-      setPets(petsData);
+      setPets(petsData.sort((a: any, b: any) => {
+        const dateA = a.createdAt?.seconds || 0;
+        const dateB = b.createdAt?.seconds || 0;
+        return dateB - dateA;
+      }));
     }, (error) => {
-      console.error("Error fetching pets:", error);
+      // Silently handle or log if needed, but avoid crashing
+      if (error.message.includes('permissions')) {
+        console.warn("Waiting for permissions to fetch pets...");
+      } else {
+        console.error("Error fetching pets:", error);
+      }
     });
     return () => unsub();
   }, []);
 
   useEffect(() => {
     const seedPets = async () => {
+      if (user.email !== "yorman.osorio16@gmail.com") return;
       const q = query(collection(db, 'pets'), limit(1));
       const snap = await getDocs(q);
       if (snap.empty) {
@@ -164,6 +174,7 @@ export default function App() {
           const { id, ...petData } = pet;
           await addDoc(collection(db, 'pets'), {
             ...petData,
+            type: 'pet',
             createdAt: serverTimestamp()
           });
         }
@@ -2850,9 +2861,9 @@ function ShopView({ pets, profile, updateCoins, updateDiamonds, setError, setSuc
     { id: 'user_list_access', name: 'Lista de Usuarios', description: 'Acceso a la lista completa de exploradores.', cost: 800, icon: '📋', currency: 'coins' },
     { id: 'follow_request', name: 'Solicitud de Seguir', description: 'Sistema de seguimiento por aprobación.', cost: 400, icon: '🤝', currency: 'coins' },
     { id: 'diamond_pack_1', name: 'Pack 10 Diamantes', description: 'DiamantesCoint para funciones exclusivas.', cost: 5000, icon: '💎', currency: 'coins' },
-    { id: 'premium_status', name: 'Estatus Diamante', description: 'Acceso total a la versión paga de CupiraApp.', cost: 50, icon: '💠', currency: 'diamonds' },
     ...pets.map(p => ({ 
       ...p, 
+      type: 'pet',
       icon: (
         <img 
           key={p.image} 
@@ -2879,7 +2890,7 @@ function ShopView({ pets, profile, updateCoins, updateDiamonds, setError, setSuc
 
     if (profile.inventory?.includes(prize.id) && prize.id !== 'diamond_pack_1') {
       // If it's a pet, allow equipping/unequipping it
-      if (prize.id.startsWith('pet_')) {
+      if (prize.type === 'pet' || prize.id.startsWith('pet_')) {
         try {
           const newPet = profile.activePet === prize.id ? null : prize.id;
           await updateDoc(doc(db, 'users', profile.uid), { activePet: newPet });
@@ -4043,9 +4054,10 @@ function AdminPetsView({ pets, setError, setSuccessMessage }: { pets: Pet[], set
         cost: Number(cost),
         currency: 'diamonds',
         description,
+        type: 'pet',
         createdAt: serverTimestamp()
       });
-      setSuccessMessage("MASCOTA AÑADIDA");
+      setSuccessMessage("¡MASCOTA AÑADIDA CON ÉXITO! ✨");
       setName('');
       setImage('');
       setCost(150);

@@ -77,4 +77,5 @@ export interface Pet {
   cost: number;
   currency: 'coins' | 'diamonds';
   description: string;
+  type?: string;
 }
