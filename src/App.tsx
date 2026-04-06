@@ -2853,14 +2853,14 @@ function GamesView({ profile, updateCoins, updateDiamonds, setError, setSuccessM
 
 function ShopView({ pets, profile, updateCoins, updateDiamonds, setError, setSuccessMessage }: { pets: Pet[], profile: User, updateCoins: (uid: string, amount: number) => Promise<void>, updateDiamonds: (uid: string, amount: number) => Promise<void>, setError: (m: string) => void, setSuccessMessage: (m: string) => void }) {
   const prizes = [
-    { id: 'badge_unique', name: 'Insignia Única', description: 'Una estrella dorada al lado de tu nombre.', cost: 300, icon: '⭐', currency: 'coins' },
-    { id: 'profile_frame', name: 'Marco de Avatar', description: 'Un borde brillante para tu foto de perfil.', cost: 500, icon: '🖼️', currency: 'coins' },
-    { id: 'full_profile_frame', name: 'Marco de Perfil Completo', description: 'Un diseño exclusivo que rodea todo tu perfil.', cost: 1500, icon: '👑', currency: 'coins' },
-    { id: 'theme_custom', name: 'Color de Interfaz', description: 'Cambia el color principal de tu aplicación.', cost: 1000, icon: '🎨', currency: 'coins' },
-    { id: 'premium_theme', name: 'Tema Premium', description: 'Sube tu propia imagen de fondo para tu perfil.', cost: 2000, icon: '✨', currency: 'coins' },
-    { id: 'user_list_access', name: 'Lista de Usuarios', description: 'Acceso a la lista completa de exploradores.', cost: 800, icon: '📋', currency: 'coins' },
-    { id: 'follow_request', name: 'Solicitud de Seguir', description: 'Sistema de seguimiento por aprobación.', cost: 400, icon: '🤝', currency: 'coins' },
-    { id: 'diamond_pack_1', name: 'Pack 10 Diamantes', description: 'DiamantesCoint para funciones exclusivas.', cost: 5000, icon: '💎', currency: 'coins' },
+    { id: 'badge_unique', name: 'Insignia Única', description: 'Una estrella dorada al lado de tu nombre.', cost: 300, icon: '⭐', currency: 'coins', type: 'item' },
+    { id: 'profile_frame', name: 'Marco de Avatar', description: 'Un borde brillante para tu foto de perfil.', cost: 500, icon: '🖼️', currency: 'coins', type: 'item' },
+    { id: 'full_profile_frame', name: 'Marco de Perfil Completo', description: 'Un diseño exclusivo que rodea todo tu perfil.', cost: 1500, icon: '👑', currency: 'coins', type: 'item' },
+    { id: 'theme_custom', name: 'Color de Interfaz', description: 'Cambia el color principal de tu aplicación.', cost: 1000, icon: '🎨', currency: 'coins', type: 'item' },
+    { id: 'premium_theme', name: 'Tema Premium', description: 'Sube tu propia imagen de fondo para tu perfil.', cost: 2000, icon: '✨', currency: 'coins', type: 'item' },
+    { id: 'user_list_access', name: 'Lista de Usuarios', description: 'Acceso a la lista completa de exploradores.', cost: 800, icon: '📋', currency: 'coins', type: 'item' },
+    { id: 'follow_request', name: 'Solicitud de Seguir', description: 'Sistema de seguimiento por aprobación.', cost: 400, icon: '🤝', currency: 'coins', type: 'item' },
+    { id: 'diamond_pack_1', name: 'Pack 10 Diamantes', description: 'DiamantesCoint para funciones exclusivas.', cost: 5000, icon: '💎', currency: 'coins', type: 'item' },
     ...pets.map(p => ({ 
       ...p, 
       type: 'pet',
@@ -2868,12 +2868,21 @@ function ShopView({ pets, profile, updateCoins, updateDiamonds, setError, setSuc
         <img 
           key={p.image} 
           src={p.image} 
-          className="w-12 h-12 object-contain mx-auto" 
+          referrerPolicy="no-referrer"
+          className="w-24 h-24 md:w-32 md:h-32 object-contain mx-auto drop-shadow-2xl transition-transform group-hover:scale-110 duration-500" 
           onError={(e) => {
             const target = e.target as HTMLImageElement;
+            const originalUrl = p.image;
             if (target.src.includes('weserv.nl')) {
-              target.src = p.image.replace('https://images.weserv.nl/?url=', 'https://');
+              // Try removing the proxy
+              const cleanUrl = originalUrl.replace('https://images.weserv.nl/?url=', 'https://');
+              if (target.src !== cleanUrl) {
+                target.src = cleanUrl;
+                return;
+              }
             }
+            // Fallback to a placeholder if still broken
+            target.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${p.name}`;
           }}
         />
       )
@@ -2922,7 +2931,7 @@ function ShopView({ pets, profile, updateCoins, updateDiamonds, setError, setSuc
         inventory: arrayUnion(prize.id)
       };
 
-      if (prize.id.startsWith('pet_')) {
+      if (prize.type === 'pet' || prize.id.startsWith('pet_')) {
         updates.activePet = prize.id;
       }
 
@@ -3009,25 +3018,32 @@ function ShopView({ pets, profile, updateCoins, updateDiamonds, setError, setSuc
                   </button>
                 </div>
               )}
-              <div className="flex items-center gap-1.5">
-                <div className={`w-4 h-4 ${prize.currency === 'diamonds' ? 'bg-cyan-500' : 'bg-yellow-500'} rounded-full flex items-center justify-center`}>
-                  <span className="text-[6px] font-black text-zinc-900">{prize.currency === 'diamonds' ? 'D' : 'F'}</span>
+            <div className="flex flex-col gap-3 pt-4 border-t border-white/5">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-6 h-6 ${prize.currency === 'diamonds' ? 'bg-cyan-500' : 'bg-yellow-500'} rounded-full flex items-center justify-center shadow-lg shadow-current/20`}>
+                  <span className="text-[8px] font-black text-zinc-900">{prize.currency === 'diamonds' ? 'D' : 'F'}</span>
                 </div>
-                <span className={`text-sm md:text-base font-black ${prize.currency === 'diamonds' ? 'text-cyan-500' : 'text-yellow-500'} tracking-tighter`}>{prize.cost}</span>
+                <span className={`text-lg md:text-xl font-black ${prize.currency === 'diamonds' ? 'text-cyan-500' : 'text-yellow-500'} tracking-tighter`}>{prize.cost}</span>
               </div>
               <button 
                 onClick={() => handleBuy(prize)}
-                disabled={profile.inventory?.includes(prize.id) && prize.id !== 'diamond_pack_1'}
-                className={`w-full py-2 rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-xl ${
+                className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-2xl ${
                   profile.inventory?.includes(prize.id) && prize.id !== 'diamond_pack_1'
-                  ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' 
-                  : 'bg-white text-zinc-900 hover:bg-red-500 hover:text-white'
+                    ? (prize.type === 'pet' || prize.id.startsWith('pet_'))
+                      ? profile.activePet === prize.id 
+                        ? 'bg-zinc-700 text-white border border-white/10' 
+                        : 'bg-white text-zinc-900 hover:bg-zinc-100 shadow-white/10'
+                      : 'bg-zinc-800 text-zinc-500 cursor-default border border-white/5'
+                    : 'bg-white text-zinc-900 hover:bg-zinc-100 shadow-white/10'
                 }`}
               >
-                {profile.inventory?.includes(prize.id) && prize.id !== 'diamond_pack_1' ? (
-                  prize.id.startsWith('pet_') ? (profile.activePet === prize.id ? 'Desequipar' : 'Equipar') : 'OK'
-                ) : 'Canjear'}
+                {profile.inventory?.includes(prize.id) && prize.id !== 'diamond_pack_1'
+                  ? (prize.type === 'pet' || prize.id.startsWith('pet_'))
+                    ? profile.activePet === prize.id ? 'EQUIPADO' : 'EQUIPAR'
+                    : 'DESBLOQUEADO'
+                  : 'CANJEAR'}
               </button>
+            </div>
             </div>
           </motion.div>
         ))}
@@ -3773,59 +3789,68 @@ function PetDisplay({ pets, petId }: { pets: Pet[], petId: string }) {
   return (
     <motion.div
       drag
-      dragConstraints={{ left: -150, right: 150, top: -150, bottom: 150 }}
+      dragConstraints={{ left: -200, right: 200, top: -200, bottom: 200 }}
       initial={{ opacity: 0, scale: 0.5, x: 100 }}
       animate={{ 
         opacity: 1, 
         scale: 1,
         x: 0,
-        y: [0, -15, 0],
-        rotate: [-2, 2, -2],
+        y: [0, -30, 0],
+        rotate: [-4, 4, -4],
       }}
       transition={{
         y: {
-          duration: 4,
+          duration: 3.5,
           repeat: Infinity,
           ease: "easeInOut"
         },
         rotate: {
-          duration: 5,
+          duration: 4.5,
           repeat: Infinity,
           ease: "easeInOut"
         },
         opacity: { duration: 0.5 },
         scale: { type: "spring", stiffness: 300, damping: 20 }
       }}
-      className="fixed bottom-24 right-8 z-50 cursor-grab active:cursor-grabbing select-none"
+      className="fixed bottom-32 right-8 z-50 cursor-grab active:cursor-grabbing select-none"
     >
       <div className="relative group">
         <motion.div
           animate={{
-            scale: [1, 1.05, 1],
+            scale: [1, 1.1, 1],
           }}
           transition={{
             duration: 3,
             repeat: Infinity,
             ease: "easeInOut"
           }}
-          className="relative w-28 h-28 md:w-36 md:h-36 flex items-center justify-center"
+          className="relative w-44 h-44 md:w-64 md:h-64 flex items-center justify-center"
         >
+          {/* Shadow effect */}
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-28 h-5 bg-black/30 blur-2xl rounded-full" />
+          
           <img 
             key={pet.image}
             src={pet.image} 
             alt={pet.name} 
-            className="w-full h-full object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]"
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-contain drop-shadow-[0_25px_50px_rgba(0,0,0,0.7)]"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
+              const originalUrl = pet.image;
               if (target.src.includes('weserv.nl')) {
-                target.src = pet.image.replace('https://images.weserv.nl/?url=', 'https://');
+                target.src = originalUrl.replace('https://images.weserv.nl/?url=', 'https://');
               }
             }}
           />
         </motion.div>
         
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-          <p className="text-[10px] font-black text-white uppercase tracking-widest">{pet.name}</p>
+        <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-black/90 backdrop-blur-xl px-6 py-3 rounded-full border border-white/20 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap shadow-[0_20px_40px_rgba(0,0,0,0.8)]">
+          <p className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-3">
+            <Sparkles size={14} className="text-yellow-400 animate-pulse" />
+            {pet.name}
+            <Sparkles size={14} className="text-yellow-400 animate-pulse" />
+          </p>
         </div>
       </div>
     </motion.div>
@@ -4150,8 +4175,9 @@ function AdminPetsView({ pets, setError, setSuccessMessage }: { pets: Pet[], set
               <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
             </div>
             {image && (
-              <div className="mt-6 p-8 bg-zinc-800/50 rounded-[2rem] border border-white/5 flex justify-center">
-                <img src={image} className="h-40 object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]" alt="Preview" />
+              <div className="mt-6 p-10 bg-zinc-800/50 rounded-[2.5rem] border border-white/5 flex flex-col items-center gap-4">
+                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Vista Previa</p>
+                <img src={image} referrerPolicy="no-referrer" className="h-56 md:h-72 object-contain drop-shadow-[0_30px_60px_rgba(0,0,0,0.6)]" alt="Preview" />
               </div>
             )}
           </div>
@@ -4171,9 +4197,9 @@ function AdminPetsView({ pets, setError, setSuccessMessage }: { pets: Pet[], set
             whileHover={{ y: -10 }}
             className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] border border-white/10 flex flex-col items-center text-center group shadow-2xl"
           >
-            <div className="w-32 h-32 mb-6 flex items-center justify-center relative">
+            <div className="w-40 h-40 mb-6 flex items-center justify-center relative">
               <div className="absolute inset-0 bg-red-600/10 blur-3xl rounded-full group-hover:bg-red-600/20 transition-all"></div>
-              <img src={pet.image} className="w-full h-full object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform duration-500" />
+              <img src={pet.image} referrerPolicy="no-referrer" className="w-full h-full object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.6)] group-hover:scale-110 transition-transform duration-500 relative z-10" />
             </div>
             <h3 className="text-xl font-black text-white tracking-tight">{pet.name}</h3>
             <div className="flex items-center gap-2 mt-2 mb-6">
