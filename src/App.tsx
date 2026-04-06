@@ -2867,12 +2867,12 @@ function ShopView({ pets, profile, updateCoins, updateDiamonds, setError, setSuc
       ...p, 
       type: 'pet',
       icon: (
-        <div className="w-24 h-24 md:w-32 md:h-32 mx-auto flex items-center justify-center overflow-hidden">
+        <div className="w-24 h-24 md:w-32 md:h-32 mx-auto flex items-center justify-center p-2">
           <img 
             key={p.image} 
             src={p.image} 
             referrerPolicy="no-referrer"
-            className="max-w-full max-h-full object-contain drop-shadow-2xl transition-transform group-hover:scale-110 duration-500" 
+            className="w-full h-full object-contain drop-shadow-2xl transition-transform group-hover:scale-110 duration-500" 
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               const originalUrl = p.image;
@@ -3816,7 +3816,7 @@ function PetDisplay({ pets, petId }: { pets: Pet[], petId: string }) {
         opacity: { duration: 0.5 },
         scale: { type: "spring", stiffness: 300, damping: 20 }
       }}
-      className="fixed bottom-32 right-8 z-[9999] cursor-grab active:cursor-grabbing select-none"
+      className="fixed bottom-32 right-8 z-[100000] cursor-grab active:cursor-grabbing select-none"
     >
       <div className="relative group">
         <motion.div
@@ -3828,7 +3828,7 @@ function PetDisplay({ pets, petId }: { pets: Pet[], petId: string }) {
             repeat: Infinity,
             ease: "easeInOut"
           }}
-          className="relative w-44 h-44 md:w-64 md:h-64 flex items-center justify-center overflow-hidden"
+          className="relative w-44 h-44 md:w-64 md:h-64 flex items-center justify-center"
         >
           {/* Shadow effect */}
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-28 h-5 bg-black/30 blur-2xl rounded-full" />
@@ -3838,7 +3838,7 @@ function PetDisplay({ pets, petId }: { pets: Pet[], petId: string }) {
             src={pet.image} 
             alt={pet.name} 
             referrerPolicy="no-referrer"
-            className="max-w-[90%] max-h-[90%] object-contain drop-shadow-[0_25px_50px_rgba(0,0,0,0.7)]"
+            className="w-full h-full object-contain drop-shadow-[0_25px_50px_rgba(0,0,0,0.7)]"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               const originalUrl = pet.image;
