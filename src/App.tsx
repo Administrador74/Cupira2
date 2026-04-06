@@ -774,7 +774,9 @@ function Register({ setView, setSuccessMessage, setPendingView }: { setView: (v:
         role: isAdmin ? 'admin' : 'user',
         gallery: [],
         location: '',
-        status: ''
+        status: '',
+        coins: 50,
+        diamonds: 1
       });
       console.log("Documento de usuario creado en Firestore");
       
@@ -2861,30 +2863,32 @@ function ShopView({ pets, profile, updateCoins, updateDiamonds, setError, setSuc
     { id: 'user_list_access', name: 'Lista de Usuarios', description: 'Acceso a la lista completa de exploradores.', cost: 800, icon: '📋', currency: 'coins', type: 'item' },
     { id: 'follow_request', name: 'Solicitud de Seguir', description: 'Sistema de seguimiento por aprobación.', cost: 400, icon: '🤝', currency: 'coins', type: 'item' },
     { id: 'diamond_pack_1', name: 'Pack 10 Diamantes', description: 'DiamantesCoint para funciones exclusivas.', cost: 5000, icon: '💎', currency: 'coins', type: 'item' },
-    ...pets.map(p => ({ 
+    ...[...pets].sort((a, b) => a.cost - b.cost).map(p => ({ 
       ...p, 
       type: 'pet',
       icon: (
-        <img 
-          key={p.image} 
-          src={p.image} 
-          referrerPolicy="no-referrer"
-          className="w-24 h-24 md:w-32 md:h-32 object-contain mx-auto drop-shadow-2xl transition-transform group-hover:scale-110 duration-500" 
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            const originalUrl = p.image;
-            if (target.src.includes('weserv.nl')) {
-              // Try removing the proxy
-              const cleanUrl = originalUrl.replace('https://images.weserv.nl/?url=', 'https://');
-              if (target.src !== cleanUrl) {
-                target.src = cleanUrl;
-                return;
+        <div className="w-24 h-24 md:w-32 md:h-32 mx-auto flex items-center justify-center overflow-hidden">
+          <img 
+            key={p.image} 
+            src={p.image} 
+            referrerPolicy="no-referrer"
+            className="max-w-full max-h-full object-contain drop-shadow-2xl transition-transform group-hover:scale-110 duration-500" 
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              const originalUrl = p.image;
+              if (target.src.includes('weserv.nl')) {
+                // Try removing the proxy
+                const cleanUrl = originalUrl.replace('https://images.weserv.nl/?url=', 'https://');
+                if (target.src !== cleanUrl) {
+                  target.src = cleanUrl;
+                  return;
+                }
               }
-            }
-            // Fallback to a placeholder if still broken
-            target.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${p.name}`;
-          }}
-        />
+              // Fallback to a placeholder if still broken
+              target.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${p.name}`;
+            }}
+          />
+        </div>
       )
     })),
   ];
@@ -3812,7 +3816,7 @@ function PetDisplay({ pets, petId }: { pets: Pet[], petId: string }) {
         opacity: { duration: 0.5 },
         scale: { type: "spring", stiffness: 300, damping: 20 }
       }}
-      className="fixed bottom-32 right-8 z-50 cursor-grab active:cursor-grabbing select-none"
+      className="fixed bottom-32 right-8 z-[9999] cursor-grab active:cursor-grabbing select-none"
     >
       <div className="relative group">
         <motion.div
@@ -3824,7 +3828,7 @@ function PetDisplay({ pets, petId }: { pets: Pet[], petId: string }) {
             repeat: Infinity,
             ease: "easeInOut"
           }}
-          className="relative w-44 h-44 md:w-64 md:h-64 flex items-center justify-center"
+          className="relative w-44 h-44 md:w-64 md:h-64 flex items-center justify-center overflow-hidden"
         >
           {/* Shadow effect */}
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-28 h-5 bg-black/30 blur-2xl rounded-full" />
@@ -3834,7 +3838,7 @@ function PetDisplay({ pets, petId }: { pets: Pet[], petId: string }) {
             src={pet.image} 
             alt={pet.name} 
             referrerPolicy="no-referrer"
-            className="w-full h-full object-contain drop-shadow-[0_25px_50px_rgba(0,0,0,0.7)]"
+            className="max-w-[90%] max-h-[90%] object-contain drop-shadow-[0_25px_50px_rgba(0,0,0,0.7)]"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               const originalUrl = pet.image;
@@ -4197,9 +4201,9 @@ function AdminPetsView({ pets, setError, setSuccessMessage }: { pets: Pet[], set
             whileHover={{ y: -10 }}
             className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] border border-white/10 flex flex-col items-center text-center group shadow-2xl"
           >
-            <div className="w-40 h-40 mb-6 flex items-center justify-center relative">
+            <div className="w-40 h-40 mb-6 flex items-center justify-center relative overflow-hidden">
               <div className="absolute inset-0 bg-red-600/10 blur-3xl rounded-full group-hover:bg-red-600/20 transition-all"></div>
-              <img src={pet.image} referrerPolicy="no-referrer" className="w-full h-full object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.6)] group-hover:scale-110 transition-transform duration-500 relative z-10" />
+              <img src={pet.image} referrerPolicy="no-referrer" className="max-w-[85%] max-h-[85%] object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.6)] group-hover:scale-110 transition-transform duration-500 relative z-10" />
             </div>
             <h3 className="text-xl font-black text-white tracking-tight">{pet.name}</h3>
             <div className="flex items-center gap-2 mt-2 mb-6">
