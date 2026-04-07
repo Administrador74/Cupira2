@@ -13,7 +13,12 @@
         "role": { "type": "string", "enum": ["admin", "user"] },
         "location": { "type": "string" },
         "status": { "type": "string" },
-        "gallery": { "type": "array", "items": { "type": "string" } }
+        "gallery": { "type": "array", "items": { "type": "string" } },
+        "coins": { "type": "number" },
+        "diamonds": { "type": "number" },
+        "inventory": { "type": "array", "items": { "type": "string" } },
+        "activePet": { "type": "string" },
+        "activePets": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["uid", "displayName", "email"]
     },

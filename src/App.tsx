@@ -565,7 +565,9 @@ export default function App() {
                   )}
                 </motion.div>
               </AnimatePresence>
-              {profile.activePet && <PetDisplay pets={pets} petId={profile.activePet} />}
+              {(profile.activePets || (profile.activePet ? [profile.activePet] : [])).map((petId, idx) => (
+                <PetDisplay key={petId} pets={pets} petId={petId} index={idx} />
+              ))}
             </main>
             <AnimatePresence>
               {chatTargetId && profile && (
@@ -2057,20 +2059,11 @@ function Feed({ profile, onUserClick, updateCoins }: { profile: User, onUserClic
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
       const allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-      if (profile.role === 'admin') {
-        setPosts(allPosts);
-      } else {
-        setPosts(allPosts.filter(p => 
-          following.includes(p.authorId) || 
-          p.authorId === profile.uid ||
-          p.authorRole === 'admin' ||
-          p.authorName === 'Administrador'
-        ));
-      }
+      setPosts(allPosts);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'posts');
     });
-  }, [following, profile.uid, profile.role]);
+  }, [profile.uid, profile.role]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2860,7 +2853,8 @@ function ShopView({ pets, profile, updateCoins, updateDiamonds, setError, setSuc
     { id: 'full_profile_frame', name: 'Marco de Perfil Completo', description: 'Un diseño exclusivo que rodea todo tu perfil.', cost: 1500, icon: '👑', currency: 'coins', type: 'item' },
     { id: 'theme_custom', name: 'Color de Interfaz', description: 'Cambia el color principal de tu aplicación.', cost: 1000, icon: '🎨', currency: 'coins', type: 'item' },
     { id: 'premium_theme', name: 'Tema Premium', description: 'Sube tu propia imagen de fondo para tu perfil.', cost: 2000, icon: '✨', currency: 'coins', type: 'item' },
-    { id: 'user_list_access', name: 'Lista de Usuarios', description: 'Acceso a la lista completa de exploradores.', cost: 800, icon: '📋', currency: 'coins', type: 'item' },
+    { id: 'user_list_access', name: 'Lista de Usuarios', description: 'Acceso a la lista completa de exploradores.', cost: 500, icon: '📋', currency: 'diamonds', type: 'item' },
+    { id: 'multi_pet_premium', name: 'Multi-Mascota Premium', description: 'Equipa hasta 3 mascotas al mismo tiempo.', cost: 1000, icon: '🐾', currency: 'diamonds', type: 'item' },
     { id: 'follow_request', name: 'Solicitud de Seguir', description: 'Sistema de seguimiento por aprobación.', cost: 400, icon: '🤝', currency: 'coins', type: 'item' },
     { id: 'diamond_pack_1', name: 'Pack 10 Diamantes', description: 'DiamantesCoint para funciones exclusivas.', cost: 5000, icon: '💎', currency: 'coins', type: 'item' },
     ...[...pets].sort((a, b) => a.cost - b.cost).map(p => ({ 
@@ -2905,9 +2899,30 @@ function ShopView({ pets, profile, updateCoins, updateDiamonds, setError, setSuc
       // If it's a pet, allow equipping/unequipping it
       if (prize.type === 'pet' || prize.id.startsWith('pet_')) {
         try {
-          const newPet = profile.activePet === prize.id ? null : prize.id;
-          await updateDoc(doc(db, 'users', profile.uid), { activePet: newPet });
-          setSuccessMessage(newPet ? `¡Has equipado a ${prize.name}!` : `Has desequipado a ${prize.name}`);
+          const currentActivePets = profile.activePets || (profile.activePet ? [profile.activePet] : []);
+          const isEquipped = currentActivePets.includes(prize.id);
+          const hasMultiPet = profile.inventory?.includes('multi_pet_premium');
+          
+          let newActivePets: string[];
+          if (isEquipped) {
+            newActivePets = currentActivePets.filter(id => id !== prize.id);
+          } else {
+            if (hasMultiPet) {
+              if (currentActivePets.length >= 3) {
+                setError("Ya tienes el máximo de 3 mascotas equipadas.");
+                return;
+              }
+              newActivePets = [...currentActivePets, prize.id];
+            } else {
+              newActivePets = [prize.id];
+            }
+          }
+          
+          await updateDoc(doc(db, 'users', profile.uid), { 
+            activePets: newActivePets,
+            activePet: newActivePets[0] || null // Keep activePet for legacy support
+          });
+          setSuccessMessage(!isEquipped ? `¡Has equipado a ${prize.name}!` : `Has desequipado a ${prize.name}`);
           return;
         } catch (err: any) {
           setError("Error al gestionar mascota: " + err.message);
@@ -2936,7 +2951,16 @@ function ShopView({ pets, profile, updateCoins, updateDiamonds, setError, setSuc
       };
 
       if (prize.type === 'pet' || prize.id.startsWith('pet_')) {
-        updates.activePet = prize.id;
+        const currentActivePets = profile.activePets || (profile.activePet ? [profile.activePet] : []);
+        const hasMultiPet = profile.inventory?.includes('multi_pet_premium');
+        
+        if (hasMultiPet && currentActivePets.length < 3) {
+          updates.activePets = arrayUnion(prize.id);
+          updates.activePet = prize.id;
+        } else {
+          updates.activePets = [prize.id];
+          updates.activePet = prize.id;
+        }
       }
 
       await updateDoc(doc(db, 'users', profile.uid), updates);
@@ -3478,12 +3502,14 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
                   >
                     {isFollowing ? 'Siguiendo' : hasPendingRequest ? 'Pendiente' : targetProfile?.inventory?.includes('follow_request') ? 'Solicitar' : 'Seguir'}
                   </button>
-                  <button 
-                    onClick={() => onMessageClick(uid)}
-                    className="px-8 py-4 bg-zinc-800 text-white rounded-[1.5rem] font-black text-sm shadow-xl border border-white/5 hover:bg-zinc-700 transition-all active:scale-95 uppercase tracking-widest"
-                  >
-                    Mensaje
-                  </button>
+                  {isFollowing && (
+                    <button 
+                      onClick={() => onMessageClick(uid)}
+                      className="px-8 py-4 bg-zinc-800 text-white rounded-[1.5rem] font-black text-sm shadow-xl border border-white/5 hover:bg-zinc-700 transition-all active:scale-95 uppercase tracking-widest"
+                    >
+                      Mensaje
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -3786,7 +3812,7 @@ const PETS = [
   { id: 'pet_devil_girl_white', name: 'Diablilla Blanca', image: 'https://images.weserv.nl/?url=storage.googleapis.com/static.antigravity.ai/user_uploads/139d92f9-893b-45d7-85e8-8a8ddf3c4fce/ec229879-1300-4786-905c-3738596659c0.png', cost: 200, currency: 'diamonds', description: 'Misteriosa y poderosa.' },
 ];
 
-function PetDisplay({ pets, petId }: { pets: Pet[], petId: string }) {
+function PetDisplay({ pets, petId, index = 0 }: { pets: Pet[], petId: string, index?: number, key?: any }) {
   const pet = pets.find(p => p.id === petId);
   if (!pet) return null;
 
@@ -3804,19 +3830,20 @@ function PetDisplay({ pets, petId }: { pets: Pet[], petId: string }) {
       }}
       transition={{
         y: {
-          duration: 3.5,
+          duration: 3.5 + index * 0.5,
           repeat: Infinity,
           ease: "easeInOut"
         },
         rotate: {
-          duration: 4.5,
+          duration: 4.5 + index * 0.3,
           repeat: Infinity,
           ease: "easeInOut"
         },
         opacity: { duration: 0.5 },
         scale: { type: "spring", stiffness: 300, damping: 20 }
       }}
-      className="fixed bottom-32 right-8 z-[100000] cursor-grab active:cursor-grabbing select-none"
+      className="fixed bottom-32 z-[100000] cursor-grab active:cursor-grabbing select-none"
+      style={{ right: `${2 + index * 5}rem` }}
     >
       <div className="relative group">
         <motion.div

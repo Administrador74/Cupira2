@@ -14,6 +14,7 @@ export interface User {
   isDeleted?: boolean;
   themeColor?: string;
   activePet?: string;
+  activePets?: string[];
   dailyPlays?: {
     lastDate: string;
     luck: number;
