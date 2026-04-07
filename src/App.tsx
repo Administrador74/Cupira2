@@ -188,7 +188,7 @@ export default function App() {
     if (profile?.themeColor) {
       document.documentElement.style.setProperty('--primary-color', profile.themeColor);
     } else {
-      document.documentElement.style.setProperty('--primary-color', '#ef4444'); // Default red-500
+      document.documentElement.style.setProperty('--primary-color', '#a855f7'); // Default purple-500
     }
   }, [profile?.themeColor]);
 
@@ -431,39 +431,17 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-gray-100 font-sans selection:bg-red-500 selection:text-white overflow-x-hidden">
-      {/* Animated Background Elements */}
-      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <motion.div 
-          animate={{ 
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            x: [0, 100, 0],
-            y: [0, 50, 0]
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-red-600/10 blur-[120px] rounded-full"
-        />
-        <motion.div 
-          animate={{ 
-            scale: [1, 1.3, 1],
-            rotate: [0, -90, 0],
-            x: [0, -100, 0],
-            y: [0, -50, 0]
-          }}
-          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          className="absolute -bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-pink-600/10 blur-[120px] rounded-full"
-        />
-      </div>
-
-      <AnimatePresence>
+    <div className="min-h-screen bg-black text-white selection:bg-purple-500/30 font-display">
+      <div className="atmosphere-bg"></div>
+      
+      <AnimatePresence mode="wait">
         {error && (
           <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] w-full max-w-md px-4">
             <motion.div 
               initial={{ y: -50, opacity: 0, scale: 0.9 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: -50, opacity: 0, scale: 0.9 }}
-              className="bg-red-600 text-white p-5 rounded-[2rem] shadow-2xl shadow-red-600/20 flex items-center justify-between border border-red-500/50 backdrop-blur-md"
+              className="bg-purple-600 text-white p-5 rounded-[2rem] shadow-2xl shadow-purple-600/20 flex items-center justify-between border border-purple-500/50 backdrop-blur-md"
             >
               <div className="flex items-center gap-3">
                 <div className="bg-white/20 p-1 rounded-lg"><X size={18} strokeWidth={3} /></div>
@@ -499,7 +477,7 @@ export default function App() {
         )}
         
         {view !== 'login' && view !== 'register' && user && profile && (
-          <div key="main-app" className="max-w-6xl mx-auto px-4 md:px-8 py-8 md:py-12 flex flex-col md:flex-row gap-8">
+          <div key="main-app" className="max-w-6xl mx-auto px-4 md:px-8 py-8 md:py-12 flex flex-col md:flex-row gap-8 relative z-10">
             <Sidebar 
               setView={setView} 
               currentView={view} 
@@ -512,24 +490,28 @@ export default function App() {
             
             <main className="flex-1 md:ml-24 min-h-[calc(100vh-8rem)]">
               {/* Top Bar for Coins and Profile */}
-              <div className="flex items-center justify-between mb-8 bg-zinc-900/40 backdrop-blur-xl p-4 rounded-[2rem] border border-white/5">
+              <div className="flex items-center justify-between mb-8 glass-card p-4 rounded-[2.5rem]">
                 <div className="flex items-center gap-4">
                   <img src={profile.photoURL} alt="avatar" className="w-10 h-10 rounded-xl border border-white/10 shadow-lg" />
+                  <div className="hidden md:block">
+                    <p className="text-xs font-medium text-white/40">Hola,</p>
+                    <p className="text-sm font-bold text-white/90">{profile.displayName}</p>
+                  </div>
                 </div>
                 
                 <div className="flex flex-1 justify-end gap-3">
-                  <div className="flex items-center gap-1.5 bg-zinc-800/50 px-3 py-1.5 rounded-full border border-white/5">
+                  <div className="flex items-center gap-1.5 bg-white/5 px-4 py-2 rounded-full border border-white/10">
                     <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
                       <span className="text-[8px] font-black text-zinc-900">F</span>
                     </div>
-                    <span className="text-xs font-black text-white">{profile.coins || 0}</span>
+                    <span className="text-xs font-bold text-white/90">{profile.coins || 0}</span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 bg-zinc-800/50 px-3 py-1.5 rounded-full border border-white/5">
-                    <div className="w-5 h-5 bg-cyan-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                  <div className="flex items-center gap-1.5 bg-white/5 px-4 py-2 rounded-full border border-white/10">
+                    <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center shadow-lg shadow-purple-500/20">
                       <span className="text-[8px] font-black text-zinc-900">D</span>
                     </div>
-                    <span className="text-xs font-black text-white">{profile.diamonds || 0}</span>
+                    <span className="text-xs font-bold text-white/90">{profile.diamonds || 0}</span>
                   </div>
                 </div>
               </div>
@@ -590,6 +572,21 @@ export default function App() {
 
 // --- Auth Views ---
 
+function Logo() {
+  return (
+    <div className="flex flex-col items-center gap-2 mb-8">
+      <div className="relative w-16 h-16">
+        <div className="absolute inset-0 border-4 border-purple-400/80 rounded-[1.5rem] rotate-45 transform origin-center"></div>
+        <div className="absolute inset-0 border-4 border-purple-500/60 rounded-[1.5rem] -rotate-12 transform origin-center"></div>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-8 h-8 bg-white/10 backdrop-blur-md rounded-full border border-white/20"></div>
+        </div>
+      </div>
+      <h1 className="text-2xl font-bold tracking-[0.3em] text-white/90 uppercase">CUPIRA</h1>
+    </div>
+  );
+}
+
 function Login({ setView, setSuccessMessage, setPendingView }: { setView: (v: any) => void, setSuccessMessage: (m: string) => void, setPendingView: (v: any) => void, key?: any }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -599,7 +596,6 @@ function Login({ setView, setSuccessMessage, setPendingView }: { setView: (v: an
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Intentando iniciar sesión...");
     if (!email || !password) {
       setError("Por favor, completa todos los campos.");
       return;
@@ -607,12 +603,10 @@ function Login({ setView, setSuccessMessage, setPendingView }: { setView: (v: an
     setIsSubmitting(true);
     setError('');
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      console.log("Autenticación exitosa para:", userCredential.user.email);
+      await signInWithEmailAndPassword(auth, email, password);
       setSuccessMessage("USUARIO VALIDADO");
       setPendingView("main");
     } catch (err: any) {
-      console.error("Error en login:", err.code, err.message);
       let msg = 'Credenciales incorrectas.';
       if (err.code === 'auth/user-not-found') msg = 'El usuario no existe.';
       if (err.code === 'auth/wrong-password') msg = 'Contraseña incorrecta.';
@@ -641,41 +635,33 @@ function Login({ setView, setSuccessMessage, setPendingView }: { setView: (v: an
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black p-4 relative overflow-hidden">
-      {/* Background Glow */}
-      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-red-900/20 to-black pointer-events-none"></div>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-display">
+      <div className="atmosphere-bg"></div>
+      
       <motion.div 
-        animate={{ 
-          scale: [1, 1.1, 1],
-          opacity: [0.3, 0.5, 0.3]
-        }}
-        transition={{ duration: 10, repeat: Infinity }}
-        className="absolute -top-1/4 -right-1/4 w-1/2 h-1/2 bg-red-600/10 blur-[120px] rounded-full"
-      />
-
-      <motion.div 
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="relative bg-zinc-900/80 backdrop-blur-xl p-10 rounded-[3rem] shadow-2xl w-full max-w-md border border-white/10"
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="relative glass-card p-8 md:p-12 rounded-[3.5rem] w-full max-w-md"
       >
-        <div className="text-center mb-10">
-          <motion.div 
-            whileHover={{ rotate: 360 }}
-            transition={{ duration: 0.8 }}
-            className="inline-block p-5 bg-gradient-to-br from-red-600 to-pink-600 rounded-[2rem] shadow-xl shadow-red-600/20 mb-6"
-          >
-            <Users className="text-white" size={40} strokeWidth={2.5} />
-          </motion.div>
-          <h1 className="text-5xl font-black text-white tracking-tighter mb-2">CUPIRA<span className="text-red-600">APP</span></h1>
-          <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Conectando a Cupira</p>
+        <Logo />
+        
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-medium text-white/90">Bienvenido de nuevo</h2>
+          <p className="text-white/40 text-sm mt-1">Ingresa tus credenciales para continuar</p>
         </div>
+
+        {error && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6 p-4 bg-purple-500/10 border border-purple-500/20 rounded-2xl text-purple-400 text-xs font-bold text-center">
+            {error}
+          </motion.div>
+        )}
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Correo Electrónico</label>
+            <label className="text-xs font-medium text-white/60 ml-1">Correo electrónico</label>
             <input 
               type="email" 
-              className="w-full px-6 py-4 bg-zinc-800/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none transition-all text-white font-medium"
+              className="w-full px-6 py-4 glass-input rounded-2xl text-white placeholder:text-white/20"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@correo.com"
@@ -683,11 +669,11 @@ function Login({ setView, setSuccessMessage, setPendingView }: { setView: (v: an
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Contraseña</label>
+            <label className="text-xs font-medium text-white/60 ml-1">Contraseña</label>
             <div className="relative">
               <input 
                 type={showPassword ? "text" : "password"} 
-                className="w-full px-6 py-4 bg-zinc-800/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none transition-all text-white font-medium pr-14"
+                className="w-full px-6 py-4 glass-input rounded-2xl text-white placeholder:text-white/20 pr-14"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -696,39 +682,41 @@ function Login({ setView, setSuccessMessage, setPendingView }: { setView: (v: an
               <button 
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
           </div>
           
+          <div className="flex justify-end">
+            <button 
+              type="button"
+              onClick={handleResetPassword}
+              className="text-white/40 text-xs hover:text-purple-400 transition-colors"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
+          
           <button 
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-gradient-to-r from-red-600 to-pink-600 text-white py-5 rounded-2xl font-black text-xl shadow-2xl shadow-red-600/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+            className="w-full purple-gradient-btn text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3"
           >
             {isSubmitting ? (
-              <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
             ) : (
-              <>ENTRAR <ArrowRight size={22} strokeWidth={3} /></>
+              "Iniciar Sesión"
             )}
-          </button>
-          
-          <button 
-            type="button"
-            onClick={handleResetPassword}
-            className="w-full text-zinc-500 text-xs font-black hover:text-red-500 transition-colors uppercase tracking-widest"
-          >
-            ¿Olvidaste tu contraseña?
           </button>
         </form>
 
-        <div className="mt-12 pt-8 border-t border-white/5 text-center">
-          <p className="text-zinc-500 font-bold text-sm">
+        <div className="mt-10 text-center">
+          <p className="text-white/40 text-sm">
             ¿Eres nuevo aquí?{" "}
-            <button onClick={() => setView('register')} className="text-red-500 font-black hover:underline ml-1">
-              ÚNETE AHORA
+            <button onClick={() => setView('register')} className="text-purple-400 font-bold hover:underline ml-1">
+              Regístrate
             </button>
           </p>
         </div>
@@ -748,7 +736,6 @@ function Register({ setView, setSuccessMessage, setPendingView }: { setView: (v:
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Intentando registrar usuario...");
     if (password.length < 8) {
       setError('La clave debe tener al menos 8 dígitos.');
       return;
@@ -763,8 +750,6 @@ function Register({ setView, setSuccessMessage, setPendingView }: { setView: (v:
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const u = userCredential.user;
-      console.log("Usuario creado en Auth:", u.email);
-      
       const isAdmin = email === 'yorman.osorio16@gmail.com';
 
       await setDoc(doc(db, 'users', u.uid), {
@@ -780,9 +765,7 @@ function Register({ setView, setSuccessMessage, setPendingView }: { setView: (v:
         coins: 50,
         diamonds: 1
       });
-      console.log("Documento de usuario creado en Firestore");
       
-      // Auto-follow al administrador
       if (!isAdmin) {
         const adminQuery = query(collection(db, 'users'), where('email', '==', 'yorman.osorio16@gmail.com'));
         const adminSnap = await getDocs(adminQuery);
@@ -792,17 +775,13 @@ function Register({ setView, setSuccessMessage, setPendingView }: { setView: (v:
             followerId: u.uid,
             followingId: adminUid
           });
-          console.log("Auto-follow al administrador completado");
         }
       }
 
-      // IMPORTANTE: Primero el mensaje, luego el signout para evitar redirección prematura
       setSuccessMessage("REGISTRO EXITOSO");
       setPendingView("login");
       await signOut(auth);
-      console.log("Cerrando sesión tras registro exitoso");
     } catch (err: any) {
-      console.error("Error en registro:", err.code, err.message);
       let msg = 'Error al registrar. El correo podría estar en uso.';
       if (err.code === 'auth/email-already-in-use') msg = 'Este correo ya está registrado.';
       if (err.code === 'auth/weak-password') msg = 'La contraseña es muy débil.';
@@ -813,33 +792,33 @@ function Register({ setView, setSuccessMessage, setPendingView }: { setView: (v:
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black p-4 relative overflow-hidden">
-      {/* Background Glow */}
-      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-red-900/20 to-black pointer-events-none"></div>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-display">
+      <div className="atmosphere-bg"></div>
       
       <motion.div 
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="relative bg-zinc-900/80 backdrop-blur-xl p-10 rounded-[3rem] shadow-2xl w-full max-w-md border border-white/10"
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="relative glass-card p-8 md:p-12 rounded-[3.5rem] w-full max-w-md"
       >
-        <div className="text-center mb-10">
-          <motion.div 
-            whileHover={{ rotate: 360 }}
-            transition={{ duration: 0.8 }}
-            className="inline-block p-5 bg-gradient-to-br from-red-600 to-pink-600 rounded-[2rem] shadow-xl shadow-red-600/20 mb-6"
-          >
-            <Users className="text-white" size={40} strokeWidth={2.5} />
-          </motion.div>
-          <h1 className="text-5xl font-black text-white tracking-tighter mb-2">CUPIRA<span className="text-red-600">APP</span></h1>
-          <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Únete a la manada</p>
+        <Logo />
+        
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-medium text-white/90">Crea tu cuenta</h2>
+          <p className="text-white/40 text-sm mt-1">Únete a la comunidad más exclusiva</p>
         </div>
+
+        {error && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6 p-4 bg-purple-500/10 border border-purple-500/20 rounded-2xl text-purple-400 text-xs font-bold text-center">
+            {error}
+          </motion.div>
+        )}
 
         <form onSubmit={handleRegister} className="space-y-5">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Nombre Completo</label>
+            <label className="text-xs font-medium text-white/60 ml-1">Nombre completo</label>
             <input 
               type="text" 
-              className="w-full px-6 py-4 bg-zinc-800/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none transition-all text-white font-medium"
+              className="w-full px-6 py-4 glass-input rounded-2xl text-white placeholder:text-white/20"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Tu nombre"
@@ -847,68 +826,66 @@ function Register({ setView, setSuccessMessage, setPendingView }: { setView: (v:
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Correo Electrónico</label>
+            <label className="text-xs font-medium text-white/60 ml-1">Correo electrónico</label>
             <input 
               type="email" 
-              className="w-full px-6 py-4 bg-zinc-800/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none transition-all text-white font-medium"
+              className="w-full px-6 py-4 glass-input rounded-2xl text-white placeholder:text-white/20"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@correo.com"
               required
             />
           </div>
-          <div className="grid grid-cols-1 gap-4">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Contraseña</label>
-              <div className="relative">
-                <input 
-                  type={showPassword ? "text" : "password"} 
-                  className="w-full px-6 py-4 bg-zinc-800/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none transition-all text-white font-medium pr-14"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
-                <button 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Confirmar Contraseña</label>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-white/60 ml-1">Contraseña</label>
+            <div className="relative">
               <input 
                 type={showPassword ? "text" : "password"} 
-                className="w-full px-6 py-4 bg-zinc-800/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none transition-all text-white font-medium"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-6 py-4 glass-input rounded-2xl text-white placeholder:text-white/20 pr-14"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
               />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-white/60 ml-1">Confirmar contraseña</label>
+            <input 
+              type={showPassword ? "text" : "password"} 
+              className="w-full px-6 py-4 glass-input rounded-2xl text-white placeholder:text-white/20"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
           </div>
 
           <button 
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-gradient-to-r from-red-600 to-pink-600 text-white py-5 rounded-2xl font-black text-xl shadow-2xl shadow-red-600/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+            className="w-full purple-gradient-btn text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 mt-4"
           >
             {isSubmitting ? (
-              <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
             ) : (
-              <>CREAR CUENTA <PlusCircle size={22} strokeWidth={3} /></>
+              "Crear Cuenta"
             )}
           </button>
         </form>
 
-        <div className="mt-10 pt-8 border-t border-white/5 text-center">
-          <p className="text-zinc-500 font-bold text-sm">
+        <div className="mt-10 text-center">
+          <p className="text-white/40 text-sm">
             ¿Ya tienes cuenta?{" "}
-            <button onClick={() => setView('login')} className="text-red-500 font-black hover:underline ml-1">
-              INICIA SESIÓN
+            <button onClick={() => setView('login')} className="text-purple-400 font-bold hover:underline ml-1">
+              Inicia Sesión
             </button>
           </p>
         </div>
@@ -1018,7 +995,7 @@ function MessagesView({ profile, onChatSelect, setView }: { profile: User, onCha
       {conversations.length > 0 && (
         <section className="space-y-6">
           <h2 className="text-xs font-black text-zinc-500 uppercase tracking-[0.3em] px-4 flex items-center gap-3">
-            <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
+            <div className="w-2 h-2 bg-purple-600 rounded-full animate-pulse"></div>
             Chats Recientes
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1038,10 +1015,10 @@ function MessagesView({ profile, onChatSelect, setView }: { profile: User, onCha
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-4 border-zinc-900 rounded-full"></div>
                 </div>
                 <div className="flex-1 overflow-hidden">
-                  <h3 className="text-xl font-black text-white group-hover:text-red-500 transition-colors tracking-tight truncate">{conv.otherUser.displayName}</h3>
+                  <h3 className="text-xl font-black text-white group-hover:text-purple-500 transition-colors tracking-tight truncate">{conv.otherUser.displayName}</h3>
                   <p className="text-zinc-500 text-sm font-medium truncate mt-1 italic">"{conv.lastMessage}"</p>
                 </div>
-                <div className="bg-zinc-800 p-4 rounded-2xl text-zinc-600 group-hover:bg-red-600 group-hover:text-white transition-all shadow-xl">
+                <div className="bg-zinc-800 p-4 rounded-2xl text-zinc-600 group-hover:bg-purple-600 group-hover:text-white transition-all shadow-xl">
                   <ArrowRight size={24} strokeWidth={3} />
                 </div>
               </motion.div>
@@ -1054,7 +1031,7 @@ function MessagesView({ profile, onChatSelect, setView }: { profile: User, onCha
       {friends.length > 0 && (
         <section className="space-y-6">
           <h2 className="text-xs font-black text-zinc-500 uppercase tracking-[0.3em] px-4 flex items-center gap-3">
-            <PlusCircle size={16} className="text-red-500" />
+            <PlusCircle size={16} className="text-purple-500" />
             Iniciar Nuevo Chat
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1072,9 +1049,9 @@ function MessagesView({ profile, onChatSelect, setView }: { profile: User, onCha
                 />
                 <div className="flex-1">
                   <h3 className="text-lg font-black text-zinc-300 group-hover:text-white transition-colors">{friend.displayName}</h3>
-                  <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mt-1">¡Saluda ahora!</p>
+                  <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest mt-1">¡Saluda ahora!</p>
                 </div>
-                <div className="p-4 text-zinc-700 group-hover:text-red-500 transition-colors">
+                <div className="p-4 text-zinc-700 group-hover:text-purple-500 transition-colors">
                   <MessageSquare size={24} strokeWidth={3} />
                 </div>
               </motion.div>
@@ -1092,7 +1069,7 @@ function MessagesView({ profile, onChatSelect, setView }: { profile: User, onCha
           <p className="text-zinc-500 max-w-sm mx-auto font-medium leading-relaxed italic mb-8">Usa la lupa para encontrar usuarios, entra en su perfil y pulsa "Mensaje".</p>
           <button 
             onClick={() => setView('search')}
-            className="bg-red-600 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl shadow-red-600/20 hover:scale-105 transition-all"
+            className="bg-purple-600 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl shadow-purple-600/20 hover:scale-105 transition-all"
           >
             Ir a Buscar
           </button>
@@ -1106,7 +1083,7 @@ function MessagesView({ profile, onChatSelect, setView }: { profile: User, onCha
             className="w-full bg-zinc-900 hover:bg-zinc-800 p-8 rounded-[3rem] border border-white/10 flex items-center justify-between group transition-all"
           >
             <div className="flex items-center gap-6">
-              <div className="bg-red-600 p-5 rounded-2xl shadow-xl shadow-red-600/20 group-hover:scale-110 transition-transform">
+              <div className="bg-purple-600 p-5 rounded-2xl shadow-xl shadow-purple-600/20 group-hover:scale-110 transition-transform">
                 <ShieldCheck size={32} className="text-white" strokeWidth={3} />
               </div>
               <div className="text-left">
@@ -1246,7 +1223,7 @@ function AdminMessagesView({ onChatSelect }: { onChatSelect: (senderId: string, 
               {migrating ? 'Migrando...' : 'Sincronizar'}
             </button>
           )}
-          <div className="bg-red-600/20 text-red-500 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest border border-red-500/10">
+          <div className="bg-purple-600/20 text-purple-500 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest border border-purple-500/10">
             {conversations.length} Chats
           </div>
         </div>
@@ -1265,12 +1242,12 @@ function AdminMessagesView({ onChatSelect }: { onChatSelect: (senderId: string, 
               <img src={c.user2?.photoURL} className="w-12 h-12 rounded-xl border-2 border-zinc-900 shadow-xl" alt="u2" />
             </div>
             <div className="flex-1 overflow-hidden">
-              <h3 className="text-sm font-black text-white group-hover:text-red-500 transition-colors truncate">
+              <h3 className="text-sm font-black text-white group-hover:text-purple-500 transition-colors truncate">
                 {c.user1?.displayName} ↔ {c.user2?.displayName}
               </h3>
               <p className="text-zinc-500 text-[11px] font-medium mt-0.5 truncate max-w-md italic">"{c.lastMessage}"</p>
             </div>
-            <div className="bg-zinc-800 p-3 rounded-xl text-zinc-600 group-hover:bg-red-600 group-hover:text-white transition-all">
+            <div className="bg-zinc-800 p-3 rounded-xl text-zinc-600 group-hover:bg-purple-600 group-hover:text-white transition-all">
               <Eye size={18} strokeWidth={3} />
             </div>
           </motion.div>
@@ -1278,7 +1255,7 @@ function AdminMessagesView({ onChatSelect }: { onChatSelect: (senderId: string, 
         {conversations.length === 0 && !migrating && (
           <div className="text-center py-20 bg-zinc-900/50 rounded-[3rem] border border-white/5">
             <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm">No se encontraron conversaciones activas.</p>
-            <button onClick={handleMigrate} className="mt-6 text-red-500 font-black hover:underline uppercase tracking-widest text-xs">Sincronizar desde mensajes antiguos</button>
+            <button onClick={handleMigrate} className="mt-6 text-purple-500 font-black hover:underline uppercase tracking-widest text-xs">Sincronizar desde mensajes antiguos</button>
           </div>
         )}
       </div>
@@ -1731,7 +1708,7 @@ function ChatWindow({ profile, targetId, onClose, setError, adminViewIds, update
           {!adminViewIds && (
             <button 
               onClick={() => setIsGameMode(!isGameMode)}
-              className={`p-3 rounded-2xl transition-all ${isGameMode ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+              className={`p-3 rounded-2xl transition-all ${isGameMode ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
               title="Modo Juego IA"
             >
               <Gamepad2 size={20} strokeWidth={2.5} />
@@ -1960,11 +1937,11 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, show
   ];
 
   return (
-    <nav className="fixed bottom-2 left-2 right-2 md:left-4 md:top-4 md:bottom-4 md:w-20 bg-zinc-900/95 backdrop-blur-2xl border border-white/10 rounded-[2rem] md:rounded-[3rem] flex md:flex-col items-center justify-around md:justify-start md:pt-10 md:space-y-8 p-1.5 md:p-3 z-50 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)]">
+    <nav className="fixed bottom-2 left-2 right-2 md:left-4 md:top-4 md:bottom-4 md:w-20 glass-card rounded-[2rem] md:rounded-[3rem] flex md:flex-col items-center justify-around md:justify-start md:pt-10 md:space-y-8 p-1.5 md:p-3 z-50">
       <div className="hidden md:flex flex-col items-center space-y-4 mb-2">
         <motion.div 
           whileHover={{ scale: 1.1, rotate: 5 }}
-          className="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-red-600/40 cursor-pointer border-2 border-white/20"
+          className="w-12 h-12 bg-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-purple-600/40 cursor-pointer border-2 border-white/20"
           onClick={() => setView('main')}
         >
           <Users className="text-white" size={24} strokeWidth={3} />
@@ -1980,7 +1957,7 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, show
                 if (permission === "granted") {
                   new Notification("¡Notificaciones Activadas!", {
                     body: "Ahora recibirás avisos de nuevos mensajes y publicaciones.",
-                    icon: "https://picsum.photos/seed/cupiraapp-red/192/192"
+                    icon: "https://picsum.photos/seed/cupiraapp-purple/192/192"
                   });
                 } else {
                   alert("Por favor, activa las notificaciones en la configuración de tu navegador.");
@@ -1990,7 +1967,7 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, show
               alert("Tu navegador no soporta notificaciones.");
             }
           }}
-          className="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white transition-colors border border-white/5"
+          className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center text-white/40 hover:text-white transition-colors border border-white/10"
           title="Activar Notificaciones"
         >
           <Bell size={20} />
@@ -2001,7 +1978,7 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, show
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={onInstall}
-          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all border border-white/5 ${showInstall ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all border border-white/10 ${showInstall ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20' : 'bg-white/5 text-white/40 hover:text-white'}`}
           title="Instalar Aplicación"
         >
           <Download size={20} />
@@ -2016,20 +1993,20 @@ const Sidebar = memo(({ setView, currentView, onLogout, isAdmin, onInstall, show
           {currentView === item.id && (
             <motion.div 
               layoutId="nav-active"
-              className="absolute inset-0 bg-red-600 rounded-[1rem] md:rounded-[1.5rem] -z-10 shadow-2xl shadow-red-600/40"
+              className="absolute inset-0 bg-purple-600 rounded-[1rem] md:rounded-[1.5rem] -z-10 shadow-2xl shadow-purple-600/40"
               transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
             />
           )}
           <item.icon 
             size={22} 
-            className={`md:w-6 md:h-6 transition-all duration-500 ${currentView === item.id ? 'text-white scale-110' : 'text-zinc-600 group-hover:text-zinc-300'}`} 
+            className={`md:w-6 md:h-6 transition-all duration-500 ${currentView === item.id ? 'text-white scale-110' : 'text-white/20 group-hover:text-white/60'}`} 
             strokeWidth={currentView === item.id ? 3 : 2}
           />
         </button>
       ))}
       <button 
         onClick={onLogout}
-        className="p-2 md:p-3 text-zinc-600 hover:text-red-500 transition-all md:mt-auto group"
+        className="p-2 md:p-3 text-zinc-600 hover:text-purple-500 transition-all md:mt-auto group"
       >
         <LogOut size={22} className="md:w-6 md:h-6 group-hover:rotate-12 transition-transform" strokeWidth={2} />
       </button>
@@ -2111,7 +2088,7 @@ function Feed({ profile, onUserClick, updateCoins }: { profile: User, onUserClic
             <img src={profile.photoURL} alt="me" className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl shadow-xl border-2 border-white/10" />
             <textarea 
               placeholder="¿Qué está pasando en CupiraApp?" 
-              className="w-full p-4 md:p-5 bg-zinc-800/50 rounded-[1.5rem] md:rounded-[2rem] border border-white/5 focus:ring-2 focus:ring-red-500 outline-none resize-none font-medium text-white placeholder:text-zinc-500 transition-all text-sm md:text-base"
+              className="w-full p-4 md:p-5 bg-zinc-800/50 rounded-[1.5rem] md:rounded-[2rem] border border-white/5 focus:ring-2 focus:ring-purple-500 outline-none resize-none font-medium text-white placeholder:text-zinc-500 transition-all text-sm md:text-base"
               rows={2} value={newPost} onChange={(e) => setNewPost(e.target.value)}
             />
           </div>
@@ -2127,7 +2104,7 @@ function Feed({ profile, onUserClick, updateCoins }: { profile: User, onUserClic
                 <img src={postImage} alt="preview" className="w-full h-full object-cover" />
                 <button 
                   type="button" onClick={() => setPostImage(null)}
-                  className="absolute top-4 right-4 bg-red-600 text-white p-2.5 rounded-2xl shadow-xl hover:scale-110 transition-transform"
+                  className="absolute top-4 right-4 bg-purple-600 text-white p-2.5 rounded-2xl shadow-xl hover:scale-110 transition-transform"
                 >
                   <X size={20} strokeWidth={3} />
                 </button>
@@ -2140,7 +2117,7 @@ function Feed({ profile, onUserClick, updateCoins }: { profile: User, onUserClic
               <>
                 <button 
                   type="button" onClick={() => fileInputRef.current?.click()}
-                  className="p-4 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-2xl transition-all flex items-center gap-3 font-black uppercase tracking-widest text-xs"
+                  className="p-4 text-zinc-500 hover:text-purple-500 hover:bg-purple-500/10 rounded-2xl transition-all flex items-center gap-3 font-black uppercase tracking-widest text-xs"
                 >
                   <ImageIcon size={22} strokeWidth={2.5} /> 
                   <span>Imagen (Admin)</span>
@@ -2157,7 +2134,7 @@ function Feed({ profile, onUserClick, updateCoins }: { profile: User, onUserClic
             <button 
               type="submit" 
               disabled={!newPost.trim() && !postImage}
-              className="bg-gradient-to-r from-red-600 to-pink-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-red-600/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all flex items-center gap-3 uppercase tracking-widest text-sm"
+              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-purple-600/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all flex items-center gap-3 uppercase tracking-widest text-sm"
             >
               <Send size={20} strokeWidth={2.5} /> Publicar
             </button>
@@ -2230,7 +2207,7 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
       initial={{ opacity: 0, scale: 0.95 }} 
       animate={{ opacity: 1, scale: 1 }} 
       exit={{ opacity: 0, scale: 0.95 }}
-      className="bg-zinc-900/80 backdrop-blur-xl rounded-[2rem] md:rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden group"
+      className="glass-card rounded-[2.5rem] md:rounded-[3.5rem] overflow-hidden group"
     >
       <div className="p-5 md:p-8">
         <div className="flex justify-between items-start mb-4 md:mb-6">
@@ -2263,7 +2240,7 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
                   deletePost();
                 }
               }} 
-              className={`p-3 rounded-2xl transition-all ${profile.role === 'admin' ? 'text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white' : 'text-zinc-600 hover:text-red-500 hover:bg-red-500/10'}`}
+              className={`p-3 rounded-2xl transition-all ${profile.role === 'admin' ? 'text-purple-500 bg-purple-500/10 hover:bg-purple-500 hover:text-white' : 'text-zinc-600 hover:text-purple-500 hover:bg-purple-500/10'}`}
               title="Eliminar publicación"
             >
               <Trash2 size={22} />
@@ -2354,10 +2331,10 @@ const PostCard = memo(({ post, profile, onUserClick }: { post: Post, profile: Us
               <form onSubmit={handleComment} className="flex gap-4 pt-4 border-t border-white/5">
                 <input 
                   type="text" placeholder="Escribe un comentario..." 
-                  className="flex-1 px-6 py-4 bg-zinc-800/50 rounded-2xl border border-white/5 focus:ring-2 focus:ring-red-500 outline-none text-sm font-medium text-white placeholder:text-zinc-500 transition-all"
+                  className="flex-1 px-6 py-4 glass-input rounded-2xl text-sm font-medium text-white placeholder:text-white/20"
                   value={newComment} onChange={(e) => setNewComment(e.target.value)}
                 />
-                <button type="submit" className="bg-primary text-white p-4 rounded-2xl hover:opacity-90 shadow-xl shadow-primary/20 transition-all active:scale-90">
+                <button type="submit" className="purple-gradient-btn text-white p-4 rounded-2xl">
                   <Send size={20} strokeWidth={3} />
                 </button>
               </form>
@@ -2854,7 +2831,7 @@ function ShopView({ pets, profile, updateCoins, updateDiamonds, setError, setSuc
     { id: 'theme_custom', name: 'Color de Interfaz', description: 'Cambia el color principal de tu aplicación.', cost: 1000, icon: '🎨', currency: 'coins', type: 'item' },
     { id: 'premium_theme', name: 'Tema Premium', description: 'Sube tu propia imagen de fondo para tu perfil.', cost: 2000, icon: '✨', currency: 'coins', type: 'item' },
     { id: 'user_list_access', name: 'Lista de Usuarios', description: 'Acceso a la lista completa de exploradores.', cost: 500, icon: '📋', currency: 'diamonds', type: 'item' },
-    { id: 'multi_pet_premium', name: 'Multi-Mascota Premium', description: 'Equipa hasta 3 mascotas al mismo tiempo.', cost: 1000, icon: '🐾', currency: 'diamonds', type: 'item' },
+    { id: 'multi_pet_premium', name: 'Multi-Mascota Premium', description: 'Equipa hasta 3 mascotas al mismo tiempo.', cost: 300, icon: '🐾', currency: 'diamonds', type: 'item' },
     { id: 'follow_request', name: 'Solicitud de Seguir', description: 'Sistema de seguimiento por aprobación.', cost: 400, icon: '🤝', currency: 'coins', type: 'item' },
     { id: 'diamond_pack_1', name: 'Pack 10 Diamantes', description: 'DiamantesCoint para funciones exclusivas.', cost: 5000, icon: '💎', currency: 'coins', type: 'item' },
     ...[...pets].sort((a, b) => a.cost - b.cost).map(p => ({ 
@@ -2972,109 +2949,120 @@ function ShopView({ pets, profile, updateCoins, updateDiamonds, setError, setSuc
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8 pb-32">
-      <div className="mb-8 text-center">
+    <div className="max-w-4xl mx-auto p-4 md:p-8 pb-32 font-display">
+      <div className="mb-12 text-center relative">
+        <div className="absolute inset-0 bg-purple-500/20 blur-[100px] rounded-full -z-10"></div>
         <motion.div 
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="w-16 h-16 bg-yellow-500 rounded-[1.5rem] flex items-center justify-center mx-auto mb-4 shadow-2xl shadow-yellow-500/20"
+          className="w-20 h-20 bg-purple-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-purple-600/40 border-2 border-white/20"
         >
-          <ShoppingBag size={32} className="text-zinc-900" strokeWidth={2.5} />
+          <ShoppingBag size={40} className="text-white" strokeWidth={2.5} />
         </motion.div>
-        <h1 className="text-3xl font-black text-white tracking-tighter mb-2">Tienda CupiraApp ✨</h1>
-        <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Canjea tus CupiraCoins y DiamantesCoint</p>
+        <h1 className="text-5xl font-black text-white tracking-tighter mb-3 uppercase">La Tienda</h1>
+        <p className="text-white/40 font-medium tracking-widest text-xs uppercase">Canjea tus CupiraCoins y Diamantes</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:gap-6">
-        {prizes.map((prize, idx) => (
-          <motion.div
-            key={prize.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.05 }}
-            className="bg-zinc-900/80 backdrop-blur-xl p-4 md:p-6 rounded-[2rem] border border-white/10 flex flex-col justify-between group hover:bg-zinc-800/80 transition-all"
-          >
-            <div>
-              <div className="text-3xl md:text-4xl mb-3 group-hover:scale-110 transition-transform duration-500">{prize.icon}</div>
-              <h3 className="text-sm md:text-lg font-black text-white mb-1 truncate">{prize.name}</h3>
-              <p className="text-zinc-500 font-medium text-[10px] md:text-xs leading-tight mb-4 line-clamp-2">{prize.description}</p>
-            </div>
-            <div className="flex flex-col gap-3 pt-3 border-t border-white/5">
-              {prize.id === 'theme_custom' && profile.inventory?.includes('theme_custom') && (
-                <div className="flex flex-wrap gap-2 mb-2 justify-center">
-                  {['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#ffffff', '#000000'].map(color => (
-                    <button 
-                      key={color}
-                      onClick={async () => {
-                        await updateDoc(doc(db, 'users', profile.uid), { themeColor: color });
-                        setSuccessMessage("Color de interfaz actualizado.");
-                      }}
-                      className={`w-6 h-6 rounded-full border-2 ${profile.themeColor === color ? 'border-white scale-110 shadow-lg' : 'border-white/20'}`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              )}
-              {prize.id === 'premium_theme' && profile.inventory?.includes('premium_theme') && (
-                <div className="mt-2">
-                  <input 
-                    type="file" 
-                    id="bg-upload" 
-                    className="hidden" 
-                    accept="image/*"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        if (file.size > 500 * 1024) {
-                          setError("La imagen es demasiado grande. Máximo 500KB.");
-                          return;
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        {prizes.map((prize, idx) => {
+          const isOwned = profile.inventory?.includes(prize.id) && prize.id !== 'diamond_pack_1';
+          const currentActivePets = profile.activePets || (profile.activePet ? [profile.activePet] : []);
+          const isEquipped = currentActivePets.includes(prize.id);
+          
+          return (
+            <motion.div
+              key={prize.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.05 }}
+              className={`glass-card p-8 rounded-[3rem] flex flex-col justify-between group hover:border-purple-500/50 transition-all duration-500 ${isOwned ? 'bg-purple-500/5 border-purple-500/20' : ''}`}
+            >
+              <div>
+                <div className="text-5xl md:text-6xl mb-6 group-hover:scale-110 transition-transform duration-500 flex justify-center">{prize.icon}</div>
+                <h3 className="text-2xl font-bold text-white mb-2 text-center">{prize.name}</h3>
+                <p className="text-white/40 font-medium text-sm leading-relaxed mb-6 text-center">{prize.description}</p>
+              </div>
+              
+              <div className="space-y-6 pt-6 border-t border-white/5">
+                {prize.id === 'theme_custom' && isOwned && (
+                  <div className="flex flex-wrap gap-2 mb-2 justify-center">
+                    {['#a855f7', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#ffffff', '#000000'].map(color => (
+                      <button 
+                        key={color}
+                        onClick={async () => {
+                          await updateDoc(doc(db, 'users', profile.uid), { themeColor: color });
+                          setSuccessMessage("Color de interfaz actualizado.");
+                        }}
+                        className={`w-8 h-8 rounded-full border-2 ${profile.themeColor === color ? 'border-white scale-110 shadow-lg' : 'border-white/20'}`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                )}
+                
+                {prize.id === 'premium_theme' && isOwned && (
+                  <div className="mt-2">
+                    <input 
+                      type="file" 
+                      id="bg-upload" 
+                      className="hidden" 
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 500 * 1024) {
+                            setError("La imagen es demasiado grande. Máximo 500KB.");
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onloadend = async () => {
+                            await updateDoc(doc(db, 'users', profile.uid), { profileBg: reader.result });
+                            setSuccessMessage("Fondo de perfil actualizado.");
+                          };
+                          reader.readAsDataURL(file);
                         }
-                        const reader = new FileReader();
-                        reader.onloadend = async () => {
-                          await updateDoc(doc(db, 'users', profile.uid), { profileBg: reader.result });
-                          setSuccessMessage("Fondo de perfil actualizado.");
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
+                      }}
+                    />
+                    <button 
+                      onClick={() => document.getElementById('bg-upload')?.click()}
+                      className="w-full py-3 bg-white/5 text-white rounded-2xl text-xs font-bold uppercase tracking-widest border border-white/10 hover:bg-white/10 transition-all"
+                    >
+                      Subir Fondo
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-8 h-8 ${prize.currency === 'diamonds' ? 'bg-purple-500' : 'bg-yellow-500'} rounded-full flex items-center justify-center shadow-lg shadow-current/20`}>
+                      <span className="text-[10px] font-black text-zinc-900">{prize.currency === 'diamonds' ? 'D' : 'F'}</span>
+                    </div>
+                    <span className={`text-2xl font-bold ${prize.currency === 'diamonds' ? 'text-purple-400' : 'text-yellow-400'} tracking-tighter`}>{prize.cost}</span>
+                  </div>
+                  
                   <button 
-                    onClick={() => document.getElementById('bg-upload')?.click()}
-                    className="w-full py-2 bg-zinc-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/5 hover:bg-zinc-700 transition-all"
+                    onClick={() => handleBuy(prize)}
+                    className={`px-8 py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 ${
+                      isOwned
+                        ? (prize.type === 'pet' || prize.id.startsWith('pet_'))
+                          ? isEquipped 
+                            ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20' 
+                            : 'bg-white/10 text-white hover:bg-white/20'
+                          : 'bg-white/5 text-white/40 cursor-default'
+                        : 'purple-gradient-btn text-white'
+                    }`}
                   >
-                    Subir Fondo
+                    {isOwned
+                      ? (prize.type === 'pet' || prize.id.startsWith('pet_'))
+                        ? isEquipped ? 'Equipado' : 'Equipar'
+                        : 'Desbloqueado'
+                      : 'Canjear'}
                   </button>
                 </div>
-              )}
-            <div className="flex flex-col gap-3 pt-4 border-t border-white/5">
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`w-6 h-6 ${prize.currency === 'diamonds' ? 'bg-cyan-500' : 'bg-yellow-500'} rounded-full flex items-center justify-center shadow-lg shadow-current/20`}>
-                  <span className="text-[8px] font-black text-zinc-900">{prize.currency === 'diamonds' ? 'D' : 'F'}</span>
-                </div>
-                <span className={`text-lg md:text-xl font-black ${prize.currency === 'diamonds' ? 'text-cyan-500' : 'text-yellow-500'} tracking-tighter`}>{prize.cost}</span>
               </div>
-              <button 
-                onClick={() => handleBuy(prize)}
-                className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-2xl ${
-                  profile.inventory?.includes(prize.id) && prize.id !== 'diamond_pack_1'
-                    ? (prize.type === 'pet' || prize.id.startsWith('pet_'))
-                      ? profile.activePet === prize.id 
-                        ? 'bg-zinc-700 text-white border border-white/10' 
-                        : 'bg-white text-zinc-900 hover:bg-zinc-100 shadow-white/10'
-                      : 'bg-zinc-800 text-zinc-500 cursor-default border border-white/5'
-                    : 'bg-white text-zinc-900 hover:bg-zinc-100 shadow-white/10'
-                }`}
-              >
-                {profile.inventory?.includes(prize.id) && prize.id !== 'diamond_pack_1'
-                  ? (prize.type === 'pet' || prize.id.startsWith('pet_'))
-                    ? profile.activePet === prize.id ? 'EQUIPADO' : 'EQUIPAR'
-                    : 'DESBLOQUEADO'
-                  : 'CANJEAR'}
-              </button>
-            </div>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );
@@ -3377,11 +3365,11 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
   if (!targetProfile) return <Loading />;
 
   return (
-    <div className={`space-y-8 pb-10 rounded-[3.5rem] transition-all duration-500 ${targetProfile.inventory?.includes('full_profile_frame') ? 'p-4 bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 shadow-[0_0_50px_rgba(239,68,68,0.3)]' : ''}`}>
+    <div className={`space-y-8 pb-10 rounded-[3.5rem] transition-all duration-500 ${targetProfile.inventory?.includes('full_profile_frame') ? 'p-4 bg-gradient-to-tr from-yellow-500 via-purple-500 to-pink-500 shadow-[0_0_50px_rgba(168,85,247,0.3)]' : ''}`}>
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-zinc-900/90 backdrop-blur-xl rounded-[3rem] overflow-hidden shadow-2xl border border-white/10 relative"
+        className="glass-card rounded-[3rem] overflow-hidden relative"
         style={targetProfile.inventory?.includes('premium_theme') && targetProfile.profileBg ? {
           backgroundImage: `url(${targetProfile.profileBg})`,
           backgroundSize: 'cover',
@@ -3407,12 +3395,12 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
         <div className="px-10 pb-10 relative z-10">
           <div className="absolute -top-24 left-10">
             <div className="relative group/avatar">
-              <div className={`w-44 h-44 rounded-[3rem] border-8 border-zinc-900 bg-zinc-900 overflow-hidden shadow-2xl transition-transform group-hover/avatar:scale-105 duration-500 ${targetProfile.inventory?.includes('profile_frame') ? 'p-2 bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 animate-pulse' : ''}`}>
+              <div className={`w-44 h-44 rounded-[3rem] border-8 border-black bg-black overflow-hidden shadow-2xl transition-transform group-hover/avatar:scale-105 duration-500 ${targetProfile.inventory?.includes('profile_frame') ? 'p-2 bg-gradient-to-tr from-yellow-500 via-purple-500 to-pink-500 animate-pulse' : ''}`}>
                 <img src={targetProfile.photoURL} alt="profile" className="w-full h-full object-cover rounded-[2.5rem]" />
               </div>
               {canEdit && (
                 <>
-                  <button onClick={() => photoInputRef.current?.click()} className="absolute bottom-2 right-2 bg-primary text-white p-4 rounded-2xl border-4 border-zinc-900 hover:opacity-90 transition-all shadow-2xl active:scale-90">
+                  <button onClick={() => photoInputRef.current?.click()} className="absolute bottom-2 right-2 purple-gradient-btn text-white p-4 rounded-2xl border-4 border-black shadow-2xl active:scale-90">
                     <Camera size={22} strokeWidth={2.5} />
                   </button>
                   <input type="file" ref={photoInputRef} onChange={(e) => handleUpdateImage('photoURL', e)} className="hidden" accept="image/*" />
@@ -3460,8 +3448,8 @@ function ProfileView({ profile, isOwn, targetUserId, onUserClick, onMessageClick
                     />
                   </div>
                   <div className="flex gap-3 pt-2">
-                    <button onClick={handleSaveProfile} className="bg-primary text-white px-8 py-3 rounded-2xl text-sm font-black shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95 uppercase tracking-widest">Guardar</button>
-                    <button onClick={() => setIsEditing(false)} className="bg-zinc-700 text-zinc-300 px-8 py-3 rounded-2xl text-sm font-black hover:bg-zinc-600 transition-all uppercase tracking-widest">Cancelar</button>
+                    <button onClick={handleSaveProfile} className="purple-gradient-btn text-white px-8 py-3 rounded-2xl text-sm font-bold shadow-xl shadow-purple-500/20 transition-all active:scale-95">Guardar</button>
+                    <button onClick={() => setIsEditing(false)} className="bg-white/10 text-white/60 px-8 py-3 rounded-2xl text-sm font-bold hover:bg-white/20 transition-all">Cancelar</button>
                   </div>
                 </motion.div>
               ) : (
@@ -3927,22 +3915,22 @@ function AdminUsersView({ onUserClick, setError, setSuccessMessage }: { onUserCl
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-5xl font-black text-white tracking-tighter uppercase">Gestión de Usuarios</h1>
-          <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs mt-2">Panel de Administración / Usuarios</p>
+          <p className="text-white/40 font-medium uppercase tracking-widest text-[10px] mt-2">Panel de Administración / Usuarios</p>
         </div>
-        <div className="bg-zinc-900/80 backdrop-blur-xl px-8 py-4 rounded-3xl border border-white/10 flex items-center gap-4">
-          <Users className="text-primary" size={24} strokeWidth={3} />
+        <div className="glass-card px-8 py-4 rounded-3xl flex items-center gap-4">
+          <Users className="text-purple-500" size={24} strokeWidth={3} />
           <span className="text-xl font-black text-white">{users.length}</span>
-          <span className="text-zinc-500 font-black text-[10px] uppercase tracking-widest">Total</span>
+          <span className="text-white/40 font-black text-[10px] uppercase tracking-widest">Total</span>
         </div>
       </div>
 
-      <div className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/10">
+      <div className="glass-card p-8 rounded-[3rem]">
         <div className="relative group">
-          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-primary transition-colors" size={28} strokeWidth={3} />
+          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-purple-500 transition-colors" size={28} strokeWidth={3} />
           <input 
             type="text" 
             placeholder="Busca por nombre o correo electrónico..." 
-            className="w-full pl-16 pr-8 py-6 bg-zinc-800/50 rounded-[2rem] border-2 border-transparent focus:border-primary/20 focus:bg-zinc-800 focus:ring-4 focus:ring-primary/5 outline-none transition-all text-xl font-black text-white placeholder:text-zinc-600 shadow-inner"
+            className="w-full pl-16 pr-8 py-6 glass-input rounded-[2rem] text-xl font-bold text-white placeholder:text-white/20"
             value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
@@ -3954,7 +3942,7 @@ function AdminUsersView({ onUserClick, setError, setSuccessMessage }: { onUserCl
             key={u.uid}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-8 group"
+            className="glass-card p-8 rounded-[3rem] flex flex-col md:flex-row md:items-center justify-between gap-8 group hover:border-purple-500/50 transition-all"
           >
             <div className="flex items-center gap-6 cursor-pointer" onClick={() => onUserClick(u.uid)}>
               <img src={u.photoURL} alt="avatar" className="w-20 h-20 rounded-[2rem] shadow-2xl group-hover:scale-110 transition-transform duration-500 border-2 border-white/10" />
